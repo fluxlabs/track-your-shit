@@ -1,0 +1,336 @@
+/* Control Tower - Global Styles
+   Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net> */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 217 91% 60%;
+    --radius: 0.5rem;
+
+    /* Brand Colors - Control Tower Identity */
+    --brand-blue: 217 91% 60%;
+    --brand-purple: 262 83% 58%;
+    --brand-cyan: 189 94% 43%;
+    --brand-yellow: 45 93% 47%;
+
+    /* Status Colors - Semantic */
+    --status-success: 142 71% 45%;
+    --status-warning: 38 92% 50%;
+    --status-error: 0 84% 60%;
+    --status-info: 217 91% 60%;
+    --status-pending: 220 9% 46%;
+    --status-blocked: 30 95% 50%;   /* Orange - distinct from warning */
+    --status-paused: 45 100% 50%;   /* Yellow - distinct from blocked */
+
+    /* Terminal Theme */
+    --terminal-bg: 240 10% 4%;
+  }
+
+  .dark {
+    --background: 222 20% 4.5%;
+    --foreground: 0 0% 98%;
+    --card: 222 18% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 222 18% 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 16% 14%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 222 16% 14%;
+    --muted-foreground: 220 8% 65%;
+    --accent: 222 16% 14%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 14% 18%;
+    --input: 222 16% 14%;
+    --ring: 217 91% 60%;
+
+    /* Brand Colors - Control Tower Identity (Dark) */
+    --brand-blue: 217 91% 65%;
+    --brand-purple: 262 83% 65%;
+    --brand-cyan: 189 94% 50%;
+    --brand-yellow: 45 93% 55%;
+
+    /* Status Colors - Semantic (Dark - higher contrast) */
+    --status-success: 142 76% 52%;
+    --status-warning: 38 95% 58%;
+    --status-error: 0 88% 68%;
+    --status-info: 217 91% 68%;
+    --status-pending: 220 12% 58%;
+    --status-blocked: 30 95% 58%;   /* Orange - distinct from warning */
+    --status-paused: 45 100% 58%;   /* Yellow - distinct from blocked */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Scrollbar styling - minimal, shows only on hover/scroll */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/40;
+}
+
+/* Hide scrollbar when not hovering (for smoother look) */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* xterm.js container styling */
+.xterm-container {
+  position: relative;
+}
+
+.xterm-container .xterm {
+  height: 100%;
+  width: 100%;
+  padding: 8px;
+}
+
+.xterm-container .xterm-viewport {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.xterm-container .xterm-screen {
+  width: 100% !important;
+}
+
+/* Animation Utilities */
+@layer utilities {
+  .bg-size-200 {
+    background-size: 200%;
+  }
+  .bg-pos-0 {
+    background-position: 0% 0%;
+  }
+  .bg-pos-100 {
+    background-position: 100% 0%;
+  }
+}
+
+/* Fade in animation */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Gradient text utility */
+.text-gradient {
+  background: linear-gradient(to right, hsl(var(--brand-blue)), hsl(var(--brand-purple)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass effect for modals */
+.glass {
+  background: hsl(var(--card) / 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Theme Accent Presets */
+.theme-ocean {
+  --accent-hue: 200;
+  --accent: 200 80% 50%;
+  --ring: 200 80% 50%;
+  --primary: 200 80% 50%;
+}
+.theme-forest {
+  --accent-hue: 140;
+  --accent: 140 60% 40%;
+  --ring: 140 60% 40%;
+  --primary: 140 60% 40%;
+}
+.theme-sunset {
+  --accent-hue: 20;
+  --accent: 20 90% 55%;
+  --ring: 20 90% 55%;
+  --primary: 20 90% 55%;
+}
+.theme-purple {
+  --accent-hue: 270;
+  --accent: 270 70% 55%;
+  --ring: 270 70% 55%;
+  --primary: 270 70% 55%;
+}
+
+/* Dark mode overrides for accent themes */
+.dark.theme-ocean {
+  --accent: 200 80% 55%;
+  --ring: 200 80% 55%;
+  --primary: 200 80% 55%;
+}
+.dark.theme-forest {
+  --accent: 140 60% 50%;
+  --ring: 140 60% 50%;
+  --primary: 140 60% 50%;
+}
+.dark.theme-sunset {
+  --accent: 20 90% 60%;
+  --ring: 20 90% 60%;
+  --primary: 20 90% 60%;
+}
+.dark.theme-purple {
+  --accent: 270 70% 60%;
+  --ring: 270 70% 60%;
+  --primary: 270 70% 60%;
+}
+
+/* Active nav glow in dark mode */
+.dark .nav-item-active {
+  box-shadow: 0 0 12px -2px hsl(var(--brand-blue) / 0.35),
+    inset 0 0 0 1px hsl(var(--brand-blue) / 0.1);
+}
+
+/* Status badge high-contrast styles */
+.dark .badge-status {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.dark .badge-status-success {
+  background: hsl(var(--status-success) / 0.2);
+  color: hsl(142 76% 62%);
+  border-color: hsl(var(--status-success) / 0.3);
+}
+.dark .badge-status-warning {
+  background: hsl(var(--status-warning) / 0.2);
+  color: hsl(38 95% 68%);
+  border-color: hsl(var(--status-warning) / 0.3);
+}
+.dark .badge-status-error {
+  background: hsl(var(--status-error) / 0.2);
+  color: hsl(0 88% 72%);
+  border-color: hsl(var(--status-error) / 0.3);
+}
+
+/* UI Density Presets — compact is default */
+:root {
+  --spacing-scale: 0.8;
+}
+.density-compact {
+  --spacing-scale: 0.8;
+}
+.density-normal {
+  --spacing-scale: 1;
+}
+.density-spacious {
+  --spacing-scale: 1.2;
+}
+
+/* Font Size Presets */
+.font-scale-sm {
+  font-size: 13px;
+}
+.font-scale-md {
+  font-size: 14px;
+}
+.font-scale-lg {
+  font-size: 16px;
+}
+
+/* Font Family Presets */
+.font-family-inter {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+.font-family-jetbrains {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+.font-family-mono {
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+
+/* Reduced motion support for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-spin,
+  .animate-pulse,
+  .animate-fade-in {
+    animation: none !important;
+  }
+}
+
+/* Focus visible styles for keyboard navigation */
+.focus-visible:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* Skip link for accessibility */
+.sr-only.focus\\:not-sr-only:focus {
+  position: absolute;
+  width: auto;
+  height: auto;
+  padding: 1rem;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  background: hsl(var(--background));
+  border: 2px solid hsl(var(--primary));
+  border-radius: var(--radius);
+  z-index: 9999;
+  top: 1rem;
+  left: 1rem;
+}
