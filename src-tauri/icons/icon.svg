@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Blue-to-purple gradient matching app theme -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <!-- Lighter version for accent elements -->
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+    <!-- Subtle shadow -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect x="32" y="32" width="448" height="448" rx="96" ry="96" fill="url(#bg)" filter="url(#shadow)"/>
+
+  <!-- Subtle inner highlight -->
+  <rect x="32" y="32" width="448" height="448" rx="96" ry="96" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+
+  <!-- Clipboard body -->
+  <rect x="140" y="130" width="232" height="290" rx="20" ry="20" fill="rgba(255,255,255,0.95)"/>
+
+  <!-- Clipboard clip at top -->
+  <rect x="196" y="106" width="120" height="48" rx="12" ry="12" fill="url(#accent)"/>
+  <rect x="216" y="96" width="80" height="24" rx="10" ry="10" fill="rgba(255,255,255,0.95)"/>
+
+  <!-- Checklist line 1 — checked -->
+  <rect x="176" y="200" width="24" height="24" rx="5" fill="url(#bg)"/>
+  <polyline points="182,213 189,220 200,206" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="216" y="206" width="120" height="10" rx="5" fill="#D1D5DB"/>
+
+  <!-- Checklist line 2 — checked -->
+  <rect x="176" y="252" width="24" height="24" rx="5" fill="url(#bg)"/>
+  <polyline points="182,265 189,272 200,258" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="216" y="258" width="100" height="10" rx="5" fill="#D1D5DB"/>
+
+  <!-- Checklist line 3 — in progress -->
+  <rect x="176" y="304" width="24" height="24" rx="5" fill="none" stroke="url(#accent)" stroke-width="2.5"/>
+  <rect x="216" y="310" width="130" height="10" rx="5" fill="#E5E7EB"/>
+
+  <!-- Checklist line 4 — pending -->
+  <rect x="176" y="356" width="24" height="24" rx="5" fill="none" stroke="#D1D5DB" stroke-width="2.5"/>
+  <rect x="216" y="362" width="90" height="10" rx="5" fill="#E5E7EB"/>
+</svg>

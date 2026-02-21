@@ -1,0 +1,55 @@
+# Track Your Shit - Rust Backend Configuration
+# Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
+
+[package]
+name = "track-your-shit"
+version = "0.1.0"
+description = "Track Your Shit - Desktop app for managing Claude Code projects"
+authors = ["Jeremy McSpadden <jeremy@fluxlabs.net>"]
+edition = "2021"
+license = "MIT"
+
+[features]
+
+[lib]
+name = "track_your_shit_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled", "modern_sqlite"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "process"] }
+thiserror = "2"
+dirs = "5"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "registry"] }
+regex = "1"
+rand = "0.8"
+portable-pty = "0.8"
+notify = { version = "6", features = ["macos_fsevent"] }
+notify-debouncer-mini = "0.4"
+reqwest = { version = "0.12", features = ["json"] }
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
