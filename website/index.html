@@ -88,6 +88,31 @@
       background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
       border: 1px solid rgba(71,85,105,0.4);
     }
+    /* Lightbox */
+    .lightbox-trigger { cursor: zoom-in; }
+    .lightbox-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.9); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+      cursor: zoom-out; padding: 2rem;
+    }
+    .lightbox-overlay.active { opacity: 1; pointer-events: auto; }
+    .lightbox-overlay img {
+      max-width: 95vw; max-height: 92vh; width: auto; height: auto;
+      border-radius: 0.75rem; border: 1px solid rgba(71,85,105,0.4);
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+      transform: scale(0.95); transition: transform 0.25s ease;
+    }
+    .lightbox-overlay.active img { transform: scale(1); }
+    .lightbox-close {
+      position: absolute; top: 1.5rem; right: 1.5rem;
+      width: 2.5rem; height: 2.5rem; border-radius: 9999px;
+      background: rgba(30,41,59,0.8); border: 1px solid rgba(71,85,105,0.4);
+      color: #94a3b8; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s ease; font-size: 1.25rem;
+    }
+    .lightbox-close:hover { background: rgba(51,65,85,0.9); color: white; }
     .terminal-line::before {
       content: '$ ';
       color: #22c55e;
@@ -794,6 +819,12 @@
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 
+  <!-- Lightbox overlay -->
+  <div class="lightbox-overlay" id="lightbox">
+    <button class="lightbox-close" aria-label="Close">&times;</button>
+    <img src="" alt="" />
+  </div>
+
   <!-- Mobile menu toggle script -->
   <script>
     document.getElementById('mobile-menu-btn').addEventListener('click', function() {
@@ -805,6 +836,37 @@
         document.getElementById('mobile-menu').classList.add('hidden');
       });
     });
+  </script>
+
+  <!-- Lightbox script -->
+  <script>
+    (function() {
+      var overlay = document.getElementById('lightbox');
+      var overlayImg = overlay.querySelector('img');
+
+      // Make all screenshot images clickable
+      document.querySelectorAll('img[src^="screenshots/"]').forEach(function(img) {
+        img.classList.add('lightbox-trigger');
+        img.addEventListener('click', function() {
+          overlayImg.src = this.src;
+          overlayImg.alt = this.alt;
+          overlay.classList.add('active');
+          document.body.style.overflow = 'hidden';
+        });
+      });
+
+      function closeLightbox() {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+
+      overlay.addEventListener('click', closeLightbox);
+      overlay.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
+      overlayImg.addEventListener('click', function(e) { e.stopPropagation(); });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeLightbox();
+      });
+    })();
   </script>
 
 </body>
