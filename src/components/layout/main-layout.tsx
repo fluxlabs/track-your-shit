@@ -6,6 +6,7 @@ import { ReactNode, useState, useEffect, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useTerminalContext } from '@/contexts/terminal-context';
+import { APP_VERSION } from '@/lib/version';
 
 const ShellPage = lazy(() =>
   import('@/pages/shell').then((m) => ({ default: m.ShellPage }))
@@ -259,7 +260,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             {!sidebarCollapsed && (
               <div className="pb-3 text-center">
                 <span className="text-[10px] font-mono text-muted-foreground/40">
-                  v0.2.0
+                  v{APP_VERSION}
                 </span>
               </div>
             )}
