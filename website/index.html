@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<!-- Track Your Shit - Marketing Website -->
+<!-- Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net> -->
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Your Shit - Desktop App for Claude Code Projects</title>
+  <meta name="description" content="A native desktop app for managing Claude Code projects. Project dashboards, integrated terminal, GSD workflow, git operations, knowledge base, and more. Built with Tauri.">
+  <meta name="theme-color" content="#3B82F6">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Track Your Shit - Desktop App for Claude Code Projects">
+  <meta property="og:description" content="Manage your Claude Code projects with a native desktop app. Dashboards, terminal, GSD workflow, git, and more.">
+  <meta property="og:type" content="website">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              300: '#93c5fd',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            },
+            violet: {
+              400: '#a78bfa',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+            },
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Custom styles that Tailwind can't do inline */
+    .gradient-text {
+      background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .gradient-border {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      padding: 1px;
+    }
+    .gradient-border > * {
+      background: #0f172a;
+    }
+    .hero-glow {
+      background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59,130,246,0.15), transparent);
+    }
+    .card-glow:hover {
+      box-shadow: 0 0 40px -12px rgba(59,130,246,0.3);
+    }
+    .feature-card {
+      background: linear-gradient(180deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.9) 100%);
+      border: 1px solid rgba(71,85,105,0.3);
+    }
+    .feature-card:hover {
+      border-color: rgba(96,165,250,0.4);
+      background: linear-gradient(180deg, rgba(30,41,59,0.95) 0%, rgba(15,23,42,0.95) 100%);
+    }
+    .screenshot-mock {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid rgba(71,85,105,0.4);
+    }
+    .terminal-line::before {
+      content: '$ ';
+      color: #22c55e;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+    .float-animation {
+      animation: float 6s ease-in-out infinite;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
+    .pulse-glow {
+      animation: pulse-glow 3s ease-in-out infinite;
+    }
+    .grid-bg {
+      background-image:
+        linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+      background-size: 64px 64px;
+    }
+    /* Smooth scrolling for the whole page */
+    html {
+      scroll-behavior: smooth;
+    }
+    /* Nav blur */
+    .nav-blur {
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+    }
+    /* Mockup window dots */
+    .window-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans antialiased">
+
+  <!-- Navigation -->
+  <nav class="fixed top-0 left-0 right-0 z-50 nav-blur bg-slate-950/70 border-b border-slate-800/50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-3 group">
+        <!-- Inline SVG icon -->
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
+          <svg class="w-5 h-5" viewBox="0 0 512 512" fill="none">
+            <rect x="140" y="130" width="232" height="290" rx="20" fill="white" opacity="0.95"/>
+            <rect x="196" y="106" width="120" height="48" rx="12" fill="white" opacity="0.6"/>
+            <rect x="176" y="200" width="24" height="24" rx="5" fill="white" opacity="0.8"/>
+            <polyline points="182,213 189,220 200,206" fill="none" stroke="#3b82f6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="216" y="206" width="120" height="10" rx="5" fill="white" opacity="0.4"/>
+            <rect x="176" y="252" width="24" height="24" rx="5" fill="white" opacity="0.8"/>
+            <polyline points="182,265 189,272 200,258" fill="none" stroke="#3b82f6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="216" y="258" width="100" height="10" rx="5" fill="white" opacity="0.4"/>
+            <rect x="176" y="304" width="24" height="24" rx="5" fill="none" stroke="white" stroke-width="2.5" opacity="0.5"/>
+            <rect x="216" y="310" width="130" height="10" rx="5" fill="white" opacity="0.2"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold text-white group-hover:text-brand-400 transition-colors">Track Your Shit</span>
+      </a>
+      <div class="hidden md:flex items-center gap-8">
+        <a href="#features" class="text-sm text-slate-400 hover:text-white transition-colors">Features</a>
+        <a href="#workflow" class="text-sm text-slate-400 hover:text-white transition-colors">Workflow</a>
+        <a href="#terminal" class="text-sm text-slate-400 hover:text-white transition-colors">Terminal</a>
+        <a href="#privacy" class="text-sm text-slate-400 hover:text-white transition-colors">Privacy</a>
+        <a href="#download" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-brand-500 to-violet-500 text-white text-sm font-semibold hover:from-brand-400 hover:to-violet-400 transition-all shadow-lg shadow-brand-500/25">
+          Download
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        </a>
+      </div>
+      <!-- Mobile menu button -->
+      <button id="mobile-menu-btn" class="md:hidden p-2 text-slate-400 hover:text-white">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+    <!-- Mobile menu -->
+    <div id="mobile-menu" class="hidden md:hidden border-t border-slate-800/50 px-6 py-4 space-y-3">
+      <a href="#features" class="block text-sm text-slate-400 hover:text-white py-2">Features</a>
+      <a href="#workflow" class="block text-sm text-slate-400 hover:text-white py-2">Workflow</a>
+      <a href="#terminal" class="block text-sm text-slate-400 hover:text-white py-2">Terminal</a>
+      <a href="#privacy" class="block text-sm text-slate-400 hover:text-white py-2">Privacy</a>
+      <a href="#download" class="block text-sm text-brand-400 hover:text-brand-300 py-2 font-semibold">Download</a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="relative pt-32 pb-20 lg:pt-44 lg:pb-32 hero-glow overflow-hidden">
+    <!-- Background grid -->
+    <div class="absolute inset-0 grid-bg"></div>
+
+    <div class="relative max-w-7xl mx-auto px-6">
+      <div class="text-center max-w-4xl mx-auto">
+        <!-- Badge -->
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-slate-700/50 bg-slate-800/50 text-sm text-slate-300 mb-8">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-glow"></span>
+          Built with Tauri &middot; Rust + React
+        </div>
+
+        <h1 class="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight mb-6">
+          <span class="text-white">Track Your</span><br>
+          <span class="gradient-text">Shit.</span>
+        </h1>
+
+        <p class="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+          The native desktop app for managing Claude Code projects.
+          Dashboards, integrated terminal, GSD workflow, git operations,
+          knowledge base &mdash; all in one place.
+        </p>
+
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+          <a href="#download" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 text-white font-semibold text-lg hover:from-brand-400 hover:to-violet-400 transition-all shadow-xl shadow-brand-500/25 hover:shadow-brand-500/40">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Download for macOS
+          </a>
+          <a href="#features" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl border border-slate-700 text-slate-300 font-semibold text-lg hover:border-slate-500 hover:text-white transition-all bg-slate-800/30">
+            See Features
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </a>
+        </div>
+
+        <!-- App mockup -->
+        <div class="relative max-w-5xl mx-auto float-animation">
+          <div class="screenshot-mock rounded-xl overflow-hidden shadow-2xl shadow-black/50">
+            <!-- Window chrome -->
+            <div class="flex items-center gap-2 px-4 py-3 bg-slate-800/80 border-b border-slate-700/50">
+              <div class="window-dot bg-red-500/80"></div>
+              <div class="window-dot bg-yellow-500/80"></div>
+              <div class="window-dot bg-green-500/80"></div>
+              <span class="ml-3 text-xs text-slate-500 font-mono">Track Your Shit</span>
+            </div>
+            <!-- Mock dashboard -->
+            <div class="p-6 space-y-4">
+              <!-- Status bar -->
+              <div class="flex items-center gap-6 mb-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 rounded-full bg-brand-500"></div>
+                  <span class="text-xs text-slate-400">5 Projects</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                  <span class="text-xs text-slate-400">8 Pending Todos</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                  <span class="text-xs text-slate-400">3 GSD Projects</span>
+                </div>
+              </div>
+              <!-- Project cards grid -->
+              <div class="grid grid-cols-3 gap-4">
+                <!-- Card 1 -->
+                <div class="rounded-lg bg-slate-800/60 border border-slate-700/40 p-4 space-y-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-semibold text-white">SaaS Dashboard</span>
+                    <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                  </div>
+                  <span class="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-violet-500/20 text-violet-300">GSD</span>
+                  <p class="text-xs text-slate-500 leading-relaxed">Full-stack analytics dashboard with real-time metrics...</p>
+                  <div class="space-y-1">
+                    <div class="flex justify-between text-[10px] text-slate-500">
+                      <span>Progress</span><span class="text-brand-400">67%</span>
+                    </div>
+                    <div class="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div class="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" style="width: 67%"></div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 text-[10px] text-slate-500">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                    <span>main</span>
+                    <span class="text-slate-600">&middot;</span>
+                    <span>2h ago</span>
+                  </div>
+                </div>
+                <!-- Card 2 -->
+                <div class="rounded-lg bg-slate-800/60 border border-slate-700/40 p-4 space-y-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-semibold text-white">TaskFlow Mobile</span>
+                    <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                  </div>
+                  <span class="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-violet-500/20 text-violet-300">GSD</span>
+                  <p class="text-xs text-slate-500 leading-relaxed">Cross-platform mobile app with offline sync...</p>
+                  <div class="space-y-1">
+                    <div class="flex justify-between text-[10px] text-slate-500">
+                      <span>Progress</span><span class="text-brand-400">57%</span>
+                    </div>
+                    <div class="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div class="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" style="width: 57%"></div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 text-[10px] text-slate-500">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                    <span>feature/kanban</span>
+                    <span class="text-slate-600">&middot;</span>
+                    <span>3h ago</span>
+                  </div>
+                </div>
+                <!-- Card 3 -->
+                <div class="rounded-lg bg-slate-800/60 border border-slate-700/40 p-4 space-y-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-semibold text-white">API Gateway</span>
+                    <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                  </div>
+                  <span class="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-violet-500/20 text-violet-300">GSD</span>
+                  <p class="text-xs text-slate-500 leading-relaxed">High-performance gateway with rate limiting...</p>
+                  <div class="space-y-1">
+                    <div class="flex justify-between text-[10px] text-slate-500">
+                      <span>Progress</span><span class="text-brand-400">40%</span>
+                    </div>
+                    <div class="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div class="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" style="width: 40%"></div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 text-[10px] text-slate-500">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                    <span>main</span>
+                    <span class="text-slate-600">&middot;</span>
+                    <span>6h ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Glow effect behind mockup -->
+          <div class="absolute -inset-4 bg-gradient-to-r from-brand-500/10 via-violet-500/10 to-pink-500/10 rounded-2xl blur-3xl -z-10"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Banner -->
+  <section class="border-y border-slate-800/50 bg-slate-900/30">
+    <div class="max-w-7xl mx-auto px-6 py-12">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+        <div>
+          <div class="text-3xl md:text-4xl font-black text-white">140+</div>
+          <div class="text-sm text-slate-500 mt-1">Backend Commands</div>
+        </div>
+        <div>
+          <div class="text-3xl md:text-4xl font-black text-white">~30MB</div>
+          <div class="text-sm text-slate-500 mt-1">App Size</div>
+        </div>
+        <div>
+          <div class="text-3xl md:text-4xl font-black text-white">0</div>
+          <div class="text-sm text-slate-500 mt-1">Cloud Dependencies</div>
+        </div>
+        <div>
+          <div class="text-3xl md:text-4xl font-black gradient-text font-black">100%</div>
+          <div class="text-sm text-slate-500 mt-1">Local & Private</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section id="features" class="py-24 lg:py-32">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-black text-white mb-4">Everything you need.<br><span class="gradient-text">Nothing you don't.</span></h2>
+        <p class="text-lg text-slate-400 max-w-2xl mx-auto">A complete project management environment for Claude Code developers, built as a fast native app.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Feature 1: Project Dashboard -->
+        <div class="feature-card rounded-xl p-6 transition-all duration-300 card-glow">
+          <div class="w-12 h-12 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Project Dashboard</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Grid or list view of all your projects at a glance. Favorites, filters, search, status badges, roadmap progress bars, and git branch indicators.</p>
+        </div>
+
+        <!-- Feature 2: GSD Workflow -->
+        <div class="feature-card rounded-xl p-6 transition-all duration-300 card-glow">
+          <div class="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">GSD Workflow</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Native integration with Claude Code's GSD system. Auto-syncs your .planning/ directory &mdash; todos, plans, phases, milestones, research, and verification.</p>
+        </div>
+
+        <!-- Feature 3: Integrated Terminal -->
+        <div class="feature-card rounded-xl p-6 transition-all duration-300 card-glow">
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Integrated Terminal</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Full PTY terminal with multi-tab support, tmux persistence, broadcast mode, and command snippets. Your shell, inside your project manager.</p>
+        </div>
+
+        <!-- Feature 4: Git Operations -->
+        <div class="feature-card rounded-xl p-6 transition-all duration-300 card-glow">
+          <div class="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Git Operations</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Branch management, staging, commits, push/pull, stash, diffs, and commit history. Full git workflow without leaving the app.</p>
+        </div>
+
+        <!-- Feature 5: Knowledge Base -->
+        <div class="feature-card rounded-xl p-6 transition-all duration-300 card-glow">
+          <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Knowledge Base</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Browse project docs with rich markdown rendering, full-text search, file tree navigation, and auto-generated table of contents.</p>
+        </div>
+
+        <!-- Feature 6: Todo Aggregation -->
+        <div class="feature-card rounded-xl p-6 transition-all duration-300 card-glow">
+          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Cross-Project Todos</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Aggregate todos across all GSD projects in one view. Filter by priority, blockers, status. Track critical items and blockers at a glance.</p>
+        </div>
+
+        <!-- Feature 7: Activity Tracking -->
+        <div class="feature-card rounded-xl p-6 transition-all duration-300 card-glow">
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Activity & Decisions</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Complete audit trail of every phase completion, task, and architectural decision. Never lose context on why something was built a certain way.</p>
+        </div>
+
+        <!-- Feature 8: Notifications -->
+        <div class="feature-card rounded-xl p-6 transition-all duration-300 card-glow">
+          <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Smart Notifications</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Get notified on phase completions, test failures, cost warnings, and blockers. Filter by type, mark as read, and never miss important events.</p>
+        </div>
+
+        <!-- Feature 9: Secrets & Security -->
+        <div class="feature-card rounded-xl p-6 transition-all duration-300 card-glow">
+          <div class="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Secrets Management</h3>
+          <p class="text-sm text-slate-400 leading-relaxed">Store API keys and secrets in your OS keychain &mdash; not in config files. Encrypted by macOS Keychain, Windows Credential Store, or Linux Secret Service.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- GSD Workflow Section -->
+  <section id="workflow" class="py-24 lg:py-32 bg-slate-900/30 border-y border-slate-800/30">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid lg:grid-cols-2 gap-16 items-center">
+        <div>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-sm text-violet-300 mb-6">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            GSD Integration
+          </div>
+          <h2 class="text-3xl md:text-5xl font-black text-white mb-6">Built for the<br><span class="gradient-text">GSD workflow.</span></h2>
+          <p class="text-lg text-slate-400 mb-8 leading-relaxed">
+            Track Your Shit natively understands Claude Code's GSD (Get Stuff Done) workflow.
+            It watches your <code class="text-sm font-mono bg-slate-800 px-2 py-0.5 rounded text-brand-300">.planning/</code> directory
+            and syncs everything in real time.
+          </p>
+
+          <div class="space-y-4">
+            <div class="flex items-start gap-4">
+              <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div>
+                <h4 class="text-sm font-semibold text-white">Roadmap & Phase Tracking</h4>
+                <p class="text-sm text-slate-500">Visual progress for every phase. See what's done, what's in progress, and what's next.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4">
+              <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div>
+                <h4 class="text-sm font-semibold text-white">Todo Aggregation</h4>
+                <p class="text-sm text-slate-500">All todos from all projects in one place. Priority badges, blocker alerts, area tags.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4">
+              <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div>
+                <h4 class="text-sm font-semibold text-white">Requirements Coverage</h4>
+                <p class="text-sm text-slate-500">Parse REQUIREMENTS.md and track completion status for every requirement.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-4">
+              <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div>
+                <h4 class="text-sm font-semibold text-white">Milestones & Verification</h4>
+                <p class="text-sm text-slate-500">Track milestones, run UAT, and verify phase completions with structured checklists.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GSD mockup -->
+        <div class="screenshot-mock rounded-xl overflow-hidden shadow-2xl">
+          <div class="flex items-center gap-2 px-4 py-3 bg-slate-800/80 border-b border-slate-700/50">
+            <div class="window-dot bg-red-500/80"></div>
+            <div class="window-dot bg-yellow-500/80"></div>
+            <div class="window-dot bg-green-500/80"></div>
+            <span class="ml-3 text-xs text-slate-500 font-mono">SaaS Dashboard &mdash; GSD</span>
+          </div>
+          <div class="p-6 space-y-5">
+            <!-- Tabs -->
+            <div class="flex gap-1 text-xs">
+              <span class="px-3 py-1.5 rounded-md bg-brand-500/20 text-brand-300 font-medium">Plans</span>
+              <span class="px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-300">Todos</span>
+              <span class="px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-300">Milestones</span>
+              <span class="px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-300">UAT</span>
+              <span class="px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-300">Verification</span>
+            </div>
+            <!-- Phase list -->
+            <div class="space-y-3">
+              <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-800/40 border border-slate-700/30">
+                <div class="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                  <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div class="flex-1">
+                  <div class="text-xs font-medium text-white">Phase 1: Project Scaffolding</div>
+                  <div class="text-[10px] text-slate-500">4/4 tasks &middot; $6.20</div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Complete</span>
+              </div>
+              <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-800/40 border border-slate-700/30">
+                <div class="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                  <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div class="flex-1">
+                  <div class="text-xs font-medium text-white">Phase 2: Dashboard Core</div>
+                  <div class="text-[10px] text-slate-500">4/4 tasks &middot; $8.50</div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Complete</span>
+              </div>
+              <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-800/40 border border-slate-700/30">
+                <div class="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                  <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div class="flex-1">
+                  <div class="text-xs font-medium text-white">Phase 3: User Management</div>
+                  <div class="text-[10px] text-slate-500">4/4 tasks &middot; $9.80</div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Complete</span>
+              </div>
+              <div class="flex items-center gap-3 p-3 rounded-lg bg-brand-500/5 border border-brand-500/20">
+                <div class="w-6 h-6 rounded-full bg-brand-500/20 flex items-center justify-center">
+                  <div class="w-2 h-2 rounded-full bg-brand-400 pulse-glow"></div>
+                </div>
+                <div class="flex-1">
+                  <div class="text-xs font-medium text-white">Phase 4: Billing Integration</div>
+                  <div class="text-[10px] text-slate-500">0/3 tasks &middot; $5.00</div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-brand-500/10 text-brand-400">In Progress</span>
+              </div>
+              <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-800/40 border border-slate-700/30 opacity-60">
+                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center">
+                  <div class="w-2 h-2 rounded-full bg-slate-500"></div>
+                </div>
+                <div class="flex-1">
+                  <div class="text-xs font-medium text-slate-400">Phase 5: Deployment & CI/CD</div>
+                  <div class="text-[10px] text-slate-600">0/3 tasks &middot; Est. $5.00</div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-slate-700 text-slate-500">Pending</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Terminal Section -->
+  <section id="terminal" class="py-24 lg:py-32">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid lg:grid-cols-2 gap-16 items-center">
+        <!-- Terminal mockup -->
+        <div class="order-2 lg:order-1">
+          <div class="screenshot-mock rounded-xl overflow-hidden shadow-2xl">
+            <div class="flex items-center gap-2 px-4 py-3 bg-slate-800/80 border-b border-slate-700/50">
+              <div class="window-dot bg-red-500/80"></div>
+              <div class="window-dot bg-yellow-500/80"></div>
+              <div class="window-dot bg-green-500/80"></div>
+              <div class="flex gap-1 ml-4">
+                <span class="px-3 py-1 rounded-md bg-brand-500/20 text-[10px] text-brand-300 font-medium">Shell 1</span>
+                <span class="px-3 py-1 rounded-md text-[10px] text-slate-500">Shell 2</span>
+                <span class="px-3 py-1 rounded-md text-[10px] text-slate-500">Build</span>
+                <span class="w-5 h-5 rounded flex items-center justify-center text-slate-600 text-xs">+</span>
+              </div>
+            </div>
+            <div class="p-5 font-mono text-sm space-y-1">
+              <div class="text-slate-500">~/projects/saas-dashboard</div>
+              <div class="terminal-line text-slate-300">pnpm dev</div>
+              <div class="text-slate-500 mt-2">  <span class="text-violet-400">VITE</span> v5.4.2 ready in <span class="text-emerald-400">342ms</span></div>
+              <div class="text-slate-500 mt-1">  <span class="text-cyan-400">&#10132;</span>  Local:   <span class="text-brand-400">http://localhost:3000/</span></div>
+              <div class="text-slate-500">  <span class="text-cyan-400">&#10132;</span>  Network: <span class="text-slate-600">http://192.168.1.42:3000/</span></div>
+              <div class="text-slate-600 mt-3">  press <span class="text-white">h + enter</span> to show help</div>
+              <div class="mt-4 text-slate-500">
+                <span class="text-emerald-400">&#10004;</span> Compiled successfully in 1.2s
+              </div>
+              <div class="text-slate-500">
+                <span class="text-amber-400">&#9888;</span>  1 warning (unused import in src/lib/utils.ts:4)
+              </div>
+              <div class="mt-3">
+                <span class="text-emerald-400">$</span> <span class="bg-slate-700 w-2 h-4 inline-block animate-pulse"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="order-1 lg:order-2">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-sm text-emerald-300 mb-6">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            Full PTY Terminal
+          </div>
+          <h2 class="text-3xl md:text-5xl font-black text-white mb-6">Your shell.<br><span class="gradient-text">Built right in.</span></h2>
+          <p class="text-lg text-slate-400 mb-8 leading-relaxed">
+            A real terminal emulator powered by xterm.js and native PTY sessions.
+            Not a toy &mdash; it's a full shell with tab completion, colors, and everything you'd expect.
+          </p>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="p-4 rounded-lg bg-slate-800/30 border border-slate-700/30">
+              <h4 class="text-sm font-semibold text-white mb-1">Multi-Tab</h4>
+              <p class="text-xs text-slate-500">Unlimited terminal tabs per project with persistence.</p>
+            </div>
+            <div class="p-4 rounded-lg bg-slate-800/30 border border-slate-700/30">
+              <h4 class="text-sm font-semibold text-white mb-1">tmux Support</h4>
+              <p class="text-xs text-slate-500">Optional tmux integration for persistent sessions.</p>
+            </div>
+            <div class="p-4 rounded-lg bg-slate-800/30 border border-slate-700/30">
+              <h4 class="text-sm font-semibold text-white mb-1">Broadcast Mode</h4>
+              <p class="text-xs text-slate-500">Send commands to multiple tabs simultaneously.</p>
+            </div>
+            <div class="p-4 rounded-lg bg-slate-800/30 border border-slate-700/30">
+              <h4 class="text-sm font-semibold text-white mb-1">Snippets</h4>
+              <p class="text-xs text-slate-500">Save and run frequently-used commands instantly.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Privacy Section -->
+  <section id="privacy" class="py-24 lg:py-32 bg-slate-900/30 border-y border-slate-800/30">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-sm text-teal-300 mb-6">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          Privacy First
+        </div>
+        <h2 class="text-3xl md:text-5xl font-black text-white mb-4">Your data stays<br><span class="gradient-text">on your machine.</span></h2>
+        <p class="text-lg text-slate-400 max-w-2xl mx-auto">No cloud accounts, no telemetry, no subscriptions. Everything runs locally.</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+        <div class="text-center p-8 rounded-xl feature-card">
+          <div class="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700/50 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Local SQLite</h3>
+          <p class="text-sm text-slate-500">All project data stored in a local SQLite database on your machine. No servers, no sync, no leaks.</p>
+        </div>
+
+        <div class="text-center p-8 rounded-xl feature-card">
+          <div class="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700/50 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">OS Keychain</h3>
+          <p class="text-sm text-slate-500">API keys and secrets are encrypted by your OS keychain &mdash; macOS Keychain, Windows Credential Store, or Linux Secret Service.</p>
+        </div>
+
+        <div class="text-center p-8 rounded-xl feature-card">
+          <div class="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700/50 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Zero Telemetry</h3>
+          <p class="text-sm text-slate-500">No analytics, no tracking, no phone-home. The app works entirely offline with zero external connections.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack Section -->
+  <section class="py-24 lg:py-32">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-black text-white mb-4">Powered by<br><span class="gradient-text">serious tech.</span></h2>
+        <p class="text-lg text-slate-400 max-w-2xl mx-auto">Not another Electron app. Built with Tauri for native performance and a tiny footprint.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <!-- Rust Backend -->
+        <div class="feature-card rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+              <span class="text-lg font-bold text-orange-400">Rs</span>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-white">Rust Backend</h3>
+              <p class="text-xs text-slate-500">Tauri 2.x with Tokio async runtime</p>
+            </div>
+          </div>
+          <ul class="space-y-2 text-sm text-slate-400">
+            <li class="flex items-center gap-2"><span class="text-emerald-400">&#10004;</span> SQLite with WAL mode &amp; connection pool</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400">&#10004;</span> Native PTY for terminal sessions</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400">&#10004;</span> OS keychain for secret storage</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400">&#10004;</span> File system watcher for live sync</li>
+          </ul>
+        </div>
+
+        <!-- React Frontend -->
+        <div class="feature-card rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+              <span class="text-lg font-bold text-cyan-400">Rx</span>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-white">React Frontend</h3>
+              <p class="text-xs text-slate-500">React 18 + TypeScript + Vite</p>
+            </div>
+          </div>
+          <ul class="space-y-2 text-sm text-slate-400">
+            <li class="flex items-center gap-2"><span class="text-emerald-400">&#10004;</span> TanStack Query for smart data caching</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400">&#10004;</span> shadcn/ui + Tailwind CSS design system</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400">&#10004;</span> xterm.js terminal emulator</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400">&#10004;</span> Lazy-loaded pages with code splitting</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- More Features List -->
+  <section class="py-24 lg:py-32 bg-slate-900/30 border-y border-slate-800/30">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl md:text-5xl font-black text-white mb-4">And a whole lot more.</h2>
+        <p class="text-lg text-slate-400">Here's everything else packed into Track Your Shit.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-y-8 gap-x-12 max-w-5xl mx-auto">
+        <div>
+          <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-brand-400"></span>
+            Project Management
+          </h4>
+          <ul class="space-y-2 text-sm text-slate-500">
+            <li>Grid &amp; list views</li>
+            <li>Favorites &amp; pinning</li>
+            <li>Bulk archive &amp; delete</li>
+            <li>Project import wizard</li>
+            <li>Tech stack detection</li>
+            <li>Dependency auditing</li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-violet-400"></span>
+            GSD Workflow
+          </h4>
+          <ul class="space-y-2 text-sm text-slate-500">
+            <li>Auto-sync .planning/</li>
+            <li>Phase &amp; task tracking</li>
+            <li>Requirements coverage</li>
+            <li>Milestone management</li>
+            <li>UAT &amp; verification</li>
+            <li>Research browser</li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            Terminal
+          </h4>
+          <ul class="space-y-2 text-sm text-slate-500">
+            <li>Full PTY emulation</li>
+            <li>Multi-tab with persistence</li>
+            <li>tmux integration</li>
+            <li>Broadcast to all tabs</li>
+            <li>Command snippets</li>
+            <li>Buffer search</li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+            Git &amp; Code
+          </h4>
+          <ul class="space-y-2 text-sm text-slate-500">
+            <li>Branch management</li>
+            <li>Stage, commit, push</li>
+            <li>Diff viewer</li>
+            <li>Stash operations</li>
+            <li>Commit history</li>
+            <li>File browser</li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+            Knowledge
+          </h4>
+          <ul class="space-y-2 text-sm text-slate-500">
+            <li>Markdown docs browser</li>
+            <li>Full-text search</li>
+            <li>File tree navigation</li>
+            <li>Auto table of contents</li>
+            <li>Code highlighting</li>
+            <li>GFM support</li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+            Tracking
+          </h4>
+          <ul class="space-y-2 text-sm text-slate-500">
+            <li>Activity feed</li>
+            <li>Decision history</li>
+            <li>Cost tracking</li>
+            <li>Test run results</li>
+            <li>Notification center</li>
+            <li>Application logs</li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
+            Security
+          </h4>
+          <ul class="space-y-2 text-sm text-slate-500">
+            <li>OS keychain secrets</li>
+            <li>Zero cloud storage</li>
+            <li>No telemetry</li>
+            <li>Local-only data</li>
+            <li>Env var management</li>
+            <li>Predefined key templates</li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+            Customization
+          </h4>
+          <ul class="space-y-2 text-sm text-slate-500">
+            <li>Dark, light, system themes</li>
+            <li>Brand color palettes</li>
+            <li>Font selection</li>
+            <li>UI density control</li>
+            <li>Keyboard shortcuts</li>
+            <li>Command palette</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download Section -->
+  <section id="download" class="py-24 lg:py-32 relative overflow-hidden">
+    <div class="absolute inset-0 hero-glow"></div>
+    <div class="relative max-w-3xl mx-auto px-6 text-center">
+      <h2 class="text-4xl md:text-6xl font-black text-white mb-6">Ready to track<br><span class="gradient-text">your shit?</span></h2>
+      <p class="text-lg text-slate-400 mb-10 max-w-xl mx-auto">Download the app, import your Claude Code projects, and start managing everything from one place.</p>
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+        <a href="#" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-brand-500 to-violet-500 text-white font-semibold text-lg hover:from-brand-400 hover:to-violet-400 transition-all shadow-xl shadow-brand-500/25">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+          Download for macOS
+        </a>
+      </div>
+
+      <div class="flex items-center justify-center gap-6 text-sm text-slate-500">
+        <span class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Free &amp; open source
+        </span>
+        <span class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          No account required
+        </span>
+        <span class="flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          macOS, Linux, Windows
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800/50 py-12">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-3">
+          <div class="w-6 h-6 rounded-md bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center">
+            <svg class="w-4 h-4" viewBox="0 0 512 512" fill="none">
+              <rect x="140" y="130" width="232" height="290" rx="20" fill="white" opacity="0.9"/>
+              <rect x="176" y="200" width="24" height="24" rx="5" fill="white" opacity="0.8"/>
+              <polyline points="182,213 189,220 200,206" fill="none" stroke="#3b82f6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="text-sm text-slate-500">Track Your Shit &copy; 2026 Jeremy McSpadden</span>
+        </div>
+        <div class="flex items-center gap-6 text-sm text-slate-500">
+          <a href="https://github.com" class="hover:text-white transition-colors flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            GitHub
+          </a>
+          <a href="https://fluxlabs.net" class="hover:text-white transition-colors">Flux Labs</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Mobile menu toggle script -->
+  <script>
+    document.getElementById('mobile-menu-btn').addEventListener('click', function() {
+      document.getElementById('mobile-menu').classList.toggle('hidden');
+    });
+    // Close mobile menu on link click
+    document.querySelectorAll('#mobile-menu a').forEach(function(link) {
+      link.addEventListener('click', function() {
+        document.getElementById('mobile-menu').classList.add('hidden');
+      });
+    });
+  </script>
+
+</body>
+</html>
