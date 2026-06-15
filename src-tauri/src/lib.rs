@@ -285,6 +285,12 @@ pub fn run() {
             commands::gsd::gsd_get_validation_by_phase,
             commands::gsd::gsd_list_uat_results,
             commands::gsd::gsd_get_uat_by_phase,
+            commands::gsd::gsd_get_phase_spec,
+            commands::gsd::gsd_get_phase_security,
+            commands::gsd::gsd_get_phase_validation_doc,
+            commands::gsd::gsd_get_phase_review,
+            commands::gsd::gsd_get_codebase_docs,
+            commands::gsd::gsd_get_process_docs,
             // GSD-2 commands
             commands::gsd2::gsd2_list_milestones,
             commands::gsd2::gsd2_get_milestone,

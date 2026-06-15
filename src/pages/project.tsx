@@ -49,6 +49,9 @@ import {
   Gsd2CommandsGroup,
   Gsd2DiagnosticsGroup,
   Gsd2StatusBar,
+  GsdPhaseDocsTab,
+  GsdProcessDocsTab,
+  CodebaseTab,
 } from "@/components/project";
 import { TerminalTabs } from "@/components/terminal";
 import { watchProjectFiles } from "@/lib/tauri";
@@ -336,6 +339,12 @@ function ViewRenderer({
       return <GsdMilestonesTab projectId={projectId} />;
     case 'gsd-debug':
       return <GsdDebugTab projectId={projectId} />;
+    case 'gsd-phase-docs':
+      return <GsdPhaseDocsTab projectId={projectId} />;
+    case 'gsd-codebase':
+      return <CodebaseTab projectId={projectId} projectPath={projectPath} />;
+    case 'gsd-process-docs':
+      return <GsdProcessDocsTab projectId={projectId} />;
 
     default:
       return userMode === 'guided' && isGsd2 ? (

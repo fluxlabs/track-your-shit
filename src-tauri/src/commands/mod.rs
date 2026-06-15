@@ -9,6 +9,7 @@ pub mod git;
 pub mod github;
 pub mod gsd;
 pub mod gsd2;
+pub mod gsd_common;
 pub mod knowledge;
 pub mod logs;
 pub mod notifications;

@@ -80,6 +80,9 @@ export const projectViews: ProjectView[] = [
   { id: 'gsd-verification', label: 'Verification', icon: ShieldCheck, section: 'GSD', gsd1Only: true },
   { id: 'gsd-milestones', label: 'Milestones', icon: Flag, section: 'GSD', gsd1Only: true },
   { id: 'gsd-debug', label: 'Debug', icon: Bug, section: 'GSD', gsd1Only: true },
+  { id: 'gsd-phase-docs', label: 'Phase Docs', icon: FileText, section: 'GSD', gsd1Only: true },
+  { id: 'gsd-codebase', label: 'Codebase Map', icon: Layers, section: 'GSD', gsd1Only: true },
+  { id: 'gsd-process-docs', label: 'Project Docs', icon: BookOpen, section: 'GSD', gsd1Only: true },
 ];
 
 export interface ProjectViewContext {

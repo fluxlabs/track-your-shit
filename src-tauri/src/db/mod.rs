@@ -744,7 +744,16 @@ impl Database {
             self.record_migration("gsd_table_column_fixes")?;
         }
 
-        // Migration: Add gsd_version column to projects table (GSD-2 version detection)
+        // Migration: Add gsd_version column to projects table (version detection).
+        // Valid values: "gsd1" | "gsd2-legacy" | "none".
+        //   gsd1        — active GSD-1 project (.planning/ present; live data path).
+        //   gsd2-legacy — frozen GSD-2 project (.gsd/ present; no live data path; kept as
+        //                 gsd-pi-support basis for v1.3). The frontend uses an exact match
+        //                 on "gsd2" which never fires for this value, so the gsd2 UI views
+        //                 never mount and gsd2.rs readers are unreachable dead paths.
+        //   none        — neither directory detected.
+        // Note: the old value "gsd2" is backfilled to "gsd2-legacy" by the
+        //       backfill_gsd2_to_gsd2_legacy migration below.
         if !self.migration_applied("add_gsd_version_to_projects") {
             let has_col: bool = self
                 .conn
@@ -758,6 +767,19 @@ impl Database {
                 )?;
             }
             self.record_migration("add_gsd_version_to_projects")?;
+        }
+
+        // Migration: Backfill gsd_version from "gsd2" to "gsd2-legacy" (freeze gate).
+        // Projects imported before the D-01 routing gate was applied may have gsd_version="gsd2"
+        // stored in the DB. This one-time idempotent UPDATE ensures no existing project ever
+        // routes into the .gsd/ data path through the frontend gsd_version === 'gsd2' check.
+        if !self.migration_applied("backfill_gsd2_to_gsd2_legacy") {
+            tracing::info!("Running migration: Backfilling gsd_version gsd2 -> gsd2-legacy");
+            self.conn.execute(
+                "UPDATE projects SET gsd_version = 'gsd2-legacy' WHERE gsd_version = 'gsd2'",
+                [],
+            )?;
+            self.record_migration("backfill_gsd2_to_gsd2_legacy")?;
         }
 
         // Migration: Create dependency_cache table

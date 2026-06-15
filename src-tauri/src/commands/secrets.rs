@@ -21,6 +21,8 @@ const PREDEFINED_KEYS: &[&str] = &[
 /// In-memory index of stored secret keys, since the keyring crate
 /// does not provide a "list all" API. We persist this index alongside
 /// the secrets themselves using a special meta-key.
+// Legacy keychain key — do not rename; changing this string breaks existing user keychains.
+// Intentional tech debt; scheduled for a migration in a future major version.
 const KEY_INDEX_ENTRY: &str = "__track_your_shit_key_index__";
 
 /// Serializable key index stored as a JSON array in the keychain
