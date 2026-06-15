@@ -548,7 +548,6 @@ pub struct KnowledgeFileEntry {
     pub size_bytes: u64,
 }
 
-
 // ============================================================
 // Notification Models (CC-03)
 // ============================================================
@@ -987,8 +986,8 @@ pub struct GsdMilestoneAudit {
 pub struct TaskVerification {
     pub task_id: String,
     pub requirement: Option<String>,
-    pub test_type: String,   // "automated" | "manual"
-    pub status: String,      // "pending" | "pass" | "fail"
+    pub test_type: String, // "automated" | "manual"
+    pub status: String,    // "pending" | "pass" | "fail"
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1067,13 +1066,13 @@ pub struct UatTestResult {
     pub number: i32,
     pub test: String,
     pub expected: String,
-    pub result: String,   // "pass" | "issue" | "pending" | "skipped"
+    pub result: String, // "pass" | "issue" | "pending" | "skipped"
     pub notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UatIssue {
-    pub severity: String,  // "blocker" | "major" | "minor" | "cosmetic"
+    pub severity: String, // "blocker" | "major" | "minor" | "cosmetic"
     pub description: String,
 }
 

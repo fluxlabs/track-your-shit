@@ -340,10 +340,7 @@ pub async fn git_commit(
 
 #[tauri::command]
 pub async fn git_stash_save(project_path: String) -> Result<GitOperationResult, String> {
-    run_git_op(
-        &project_path,
-        &["stash", "push", "-m", "VCCA stash"],
-    )
+    run_git_op(&project_path, &["stash", "push", "-m", "VCCA stash"])
 }
 
 #[tauri::command]

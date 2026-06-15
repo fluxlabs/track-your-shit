@@ -376,14 +376,15 @@ async fn refresh_stale_descriptions(pool: Arc<DbPool>) -> Result<(), String> {
         let mut stmt = conn
             .prepare("SELECT id, description, path FROM projects")
             .map_err(|e: rusqlite::Error| e.to_string())?;
-        let rows = stmt.query_map([], |row: &rusqlite::Row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, Option<String>>(1)?,
-                row.get::<_, String>(2)?,
-            ))
-        })
-        .map_err(|e: rusqlite::Error| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row: &rusqlite::Row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(|e: rusqlite::Error| e.to_string())?;
         rows.filter_map(|r: Result<(String, Option<String>, String), rusqlite::Error>| r.ok())
             .collect()
     };
@@ -406,9 +407,7 @@ async fn refresh_stale_descriptions(pool: Arc<DbPool>) -> Result<(), String> {
         }
 
         // Re-read docs from disk using the same priority chain as import
-        if let Ok(Some(docs)) =
-            commands::filesystem::read_project_docs(path.to_string()).await
-        {
+        if let Ok(Some(docs)) = commands::filesystem::read_project_docs(path.to_string()).await {
             if let Some(ref new_desc) = docs.description {
                 let db = pool.write().await;
                 let _ = db.conn().execute(

@@ -67,27 +67,25 @@ pub async fn watch_project_files(
                                 );
                             }
                             // Emit GSD-2 events for .gsd/ file changes
-                            if changed_path.contains("/.gsd/")
-                                || changed_path.contains("\\.gsd\\")
+                            if changed_path.contains("/.gsd/") || changed_path.contains("\\.gsd\\")
                             {
                                 // Skip .gsd/worktrees/ to prevent event storm during builds in worktrees
                                 if !changed_path.contains("/.gsd/worktrees/")
                                     && !changed_path.contains("\\.gsd\\worktrees\\")
                                 {
-                                    let change_type =
-                                        if changed_path.contains("/STATE.md")
-                                            || changed_path.contains("\\STATE.md")
-                                        {
-                                            "gsd2_state"
-                                        } else if changed_path.contains("/milestones/")
-                                            || changed_path.contains("\\milestones\\")
-                                        {
-                                            "gsd2_milestone"
-                                        } else if changed_path.contains("metrics.json") {
-                                            "gsd2_metrics"
-                                        } else {
-                                            "gsd2_other"
-                                        };
+                                    let change_type = if changed_path.contains("/STATE.md")
+                                        || changed_path.contains("\\STATE.md")
+                                    {
+                                        "gsd2_state"
+                                    } else if changed_path.contains("/milestones/")
+                                        || changed_path.contains("\\milestones\\")
+                                    {
+                                        "gsd2_milestone"
+                                    } else if changed_path.contains("metrics.json") {
+                                        "gsd2_metrics"
+                                    } else {
+                                        "gsd2_other"
+                                    };
                                     let _ = app_handle.emit(
                                         "gsd2:file-changed",
                                         serde_json::json!({

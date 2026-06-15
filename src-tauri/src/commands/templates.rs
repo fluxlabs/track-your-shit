@@ -11,24 +11,15 @@ use std::process::Command;
 // ============================================================
 
 // react-vite-ts
-const REACT_VITE_TS_PACKAGE_JSON: &str =
-    include_str!("../templates/react-vite-ts/package.json");
-const REACT_VITE_TS_TSCONFIG: &str =
-    include_str!("../templates/react-vite-ts/tsconfig.json");
-const REACT_VITE_TS_VITE_CONFIG: &str =
-    include_str!("../templates/react-vite-ts/vite.config.ts");
-const REACT_VITE_TS_INDEX_HTML: &str =
-    include_str!("../templates/react-vite-ts/index.html");
-const REACT_VITE_TS_MAIN_TSX: &str =
-    include_str!("../templates/react-vite-ts/src/main.tsx");
-const REACT_VITE_TS_APP_TSX: &str =
-    include_str!("../templates/react-vite-ts/src/App.tsx");
-const REACT_VITE_TS_INDEX_CSS: &str =
-    include_str!("../templates/react-vite-ts/src/index.css");
-const REACT_VITE_TS_GITIGNORE: &str =
-    include_str!("../templates/react-vite-ts/.gitignore");
-const REACT_VITE_TS_README: &str =
-    include_str!("../templates/react-vite-ts/README.md");
+const REACT_VITE_TS_PACKAGE_JSON: &str = include_str!("../templates/react-vite-ts/package.json");
+const REACT_VITE_TS_TSCONFIG: &str = include_str!("../templates/react-vite-ts/tsconfig.json");
+const REACT_VITE_TS_VITE_CONFIG: &str = include_str!("../templates/react-vite-ts/vite.config.ts");
+const REACT_VITE_TS_INDEX_HTML: &str = include_str!("../templates/react-vite-ts/index.html");
+const REACT_VITE_TS_MAIN_TSX: &str = include_str!("../templates/react-vite-ts/src/main.tsx");
+const REACT_VITE_TS_APP_TSX: &str = include_str!("../templates/react-vite-ts/src/App.tsx");
+const REACT_VITE_TS_INDEX_CSS: &str = include_str!("../templates/react-vite-ts/src/index.css");
+const REACT_VITE_TS_GITIGNORE: &str = include_str!("../templates/react-vite-ts/.gitignore");
+const REACT_VITE_TS_README: &str = include_str!("../templates/react-vite-ts/README.md");
 
 // nextjs
 const NEXTJS_PACKAGE_JSON: &str = include_str!("../templates/nextjs/package.json");
@@ -65,13 +56,10 @@ const RUST_AXUM_GITIGNORE: &str = include_str!("../templates/rust-axum/.gitignor
 const RUST_AXUM_README: &str = include_str!("../templates/rust-axum/README.md");
 
 // python-fastapi
-const PYTHON_FASTAPI_PYPROJECT: &str =
-    include_str!("../templates/python-fastapi/pyproject.toml");
-const PYTHON_FASTAPI_MAIN_PY: &str =
-    include_str!("../templates/python-fastapi/src/main.py");
+const PYTHON_FASTAPI_PYPROJECT: &str = include_str!("../templates/python-fastapi/pyproject.toml");
+const PYTHON_FASTAPI_MAIN_PY: &str = include_str!("../templates/python-fastapi/src/main.py");
 const PYTHON_FASTAPI_RUN_PY: &str = include_str!("../templates/python-fastapi/run.py");
-const PYTHON_FASTAPI_GITIGNORE: &str =
-    include_str!("../templates/python-fastapi/.gitignore");
+const PYTHON_FASTAPI_GITIGNORE: &str = include_str!("../templates/python-fastapi/.gitignore");
 const PYTHON_FASTAPI_README: &str = include_str!("../templates/python-fastapi/README.md");
 
 // python-cli
@@ -91,22 +79,17 @@ const TAURI_APP_PACKAGE_JSON: &str = include_str!("../templates/tauri-app/packag
 const TAURI_APP_SRC_APP_TSX: &str = include_str!("../templates/tauri-app/src/App.tsx");
 const TAURI_APP_GITIGNORE: &str = include_str!("../templates/tauri-app/.gitignore");
 const TAURI_APP_README: &str = include_str!("../templates/tauri-app/README.md");
-const TAURI_APP_CARGO_TOML: &str =
-    include_str!("../templates/tauri-app/src-tauri/Cargo.toml");
-const TAURI_APP_MAIN_RS: &str =
-    include_str!("../templates/tauri-app/src-tauri/src/main.rs");
-const TAURI_APP_LIB_RS: &str =
-    include_str!("../templates/tauri-app/src-tauri/src/lib.rs");
+const TAURI_APP_CARGO_TOML: &str = include_str!("../templates/tauri-app/src-tauri/Cargo.toml");
+const TAURI_APP_MAIN_RS: &str = include_str!("../templates/tauri-app/src-tauri/src/main.rs");
+const TAURI_APP_LIB_RS: &str = include_str!("../templates/tauri-app/src-tauri/src/lib.rs");
 
 // blank
 const BLANK_README: &str = include_str!("../templates/blank/README.md");
 const BLANK_GITIGNORE: &str = include_str!("../templates/blank/.gitignore");
 
 // GSD planning templates
-const GSD_PLANNING_WEB_APP: &str =
-    include_str!("../templates/gsd-planning/web-app.md");
-const GSD_PLANNING_CLI_TOOL: &str =
-    include_str!("../templates/gsd-planning/cli-tool.md");
+const GSD_PLANNING_WEB_APP: &str = include_str!("../templates/gsd-planning/web-app.md");
+const GSD_PLANNING_CLI_TOOL: &str = include_str!("../templates/gsd-planning/cli-tool.md");
 const GSD_PLANNING_API: &str = include_str!("../templates/gsd-planning/api.md");
 const GSD_PLANNING_LIBRARY: &str = include_str!("../templates/gsd-planning/library.md");
 
@@ -227,25 +210,29 @@ pub fn list_gsd_planning_templates() -> Vec<GsdPlanningTemplate> {
         GsdPlanningTemplate {
             id: "web-app".into(),
             name: "Web Application".into(),
-            description: "User auth, CRUD operations, responsive UI. Suited for web apps and SPAs.".into(),
+            description: "User auth, CRUD operations, responsive UI. Suited for web apps and SPAs."
+                .into(),
             archetype: "web-app".into(),
         },
         GsdPlanningTemplate {
             id: "cli-tool".into(),
             name: "CLI Tool".into(),
-            description: "Commands, flags, config files, exit codes. Suited for developer tooling.".into(),
+            description: "Commands, flags, config files, exit codes. Suited for developer tooling."
+                .into(),
             archetype: "cli-tool".into(),
         },
         GsdPlanningTemplate {
             id: "api".into(),
             name: "API / Backend".into(),
-            description: "REST endpoints, auth, validation, docs. Suited for backend services.".into(),
+            description: "REST endpoints, auth, validation, docs. Suited for backend services."
+                .into(),
             archetype: "api".into(),
         },
         GsdPlanningTemplate {
             id: "library".into(),
             name: "Library / Package".into(),
-            description: "Public API, tests, docs, versioning. Suited for reusable packages.".into(),
+            description: "Public API, tests, docs, versioning. Suited for reusable packages."
+                .into(),
             archetype: "library".into(),
         },
     ]
@@ -290,62 +277,290 @@ fn scaffold_template(
 
     match template_id {
         "react-vite-ts" => {
-            write_file(base, "package.json", REACT_VITE_TS_PACKAGE_JSON, project_name, &mut files)?;
-            write_file(base, "tsconfig.json", REACT_VITE_TS_TSCONFIG, project_name, &mut files)?;
-            write_file(base, "vite.config.ts", REACT_VITE_TS_VITE_CONFIG, project_name, &mut files)?;
-            write_file(base, "index.html", REACT_VITE_TS_INDEX_HTML, project_name, &mut files)?;
-            write_file(base, ".gitignore", REACT_VITE_TS_GITIGNORE, project_name, &mut files)?;
-            write_file(base, "README.md", REACT_VITE_TS_README, project_name, &mut files)?;
-            write_file(base, "src/main.tsx", REACT_VITE_TS_MAIN_TSX, project_name, &mut files)?;
-            write_file(base, "src/App.tsx", REACT_VITE_TS_APP_TSX, project_name, &mut files)?;
-            write_file(base, "src/index.css", REACT_VITE_TS_INDEX_CSS, project_name, &mut files)?;
+            write_file(
+                base,
+                "package.json",
+                REACT_VITE_TS_PACKAGE_JSON,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "tsconfig.json",
+                REACT_VITE_TS_TSCONFIG,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "vite.config.ts",
+                REACT_VITE_TS_VITE_CONFIG,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "index.html",
+                REACT_VITE_TS_INDEX_HTML,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                ".gitignore",
+                REACT_VITE_TS_GITIGNORE,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "README.md",
+                REACT_VITE_TS_README,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "src/main.tsx",
+                REACT_VITE_TS_MAIN_TSX,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "src/App.tsx",
+                REACT_VITE_TS_APP_TSX,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "src/index.css",
+                REACT_VITE_TS_INDEX_CSS,
+                project_name,
+                &mut files,
+            )?;
         }
         "nextjs" => {
-            write_file(base, "package.json", NEXTJS_PACKAGE_JSON, project_name, &mut files)?;
-            write_file(base, "tsconfig.json", NEXTJS_TSCONFIG, project_name, &mut files)?;
-            write_file(base, "next.config.js", NEXTJS_CONFIG, project_name, &mut files)?;
-            write_file(base, ".gitignore", NEXTJS_GITIGNORE, project_name, &mut files)?;
+            write_file(
+                base,
+                "package.json",
+                NEXTJS_PACKAGE_JSON,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "tsconfig.json",
+                NEXTJS_TSCONFIG,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "next.config.js",
+                NEXTJS_CONFIG,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                ".gitignore",
+                NEXTJS_GITIGNORE,
+                project_name,
+                &mut files,
+            )?;
             write_file(base, "README.md", NEXTJS_README, project_name, &mut files)?;
-            write_file(base, "src/app/layout.tsx", NEXTJS_LAYOUT, project_name, &mut files)?;
-            write_file(base, "src/app/page.tsx", NEXTJS_PAGE, project_name, &mut files)?;
+            write_file(
+                base,
+                "src/app/layout.tsx",
+                NEXTJS_LAYOUT,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "src/app/page.tsx",
+                NEXTJS_PAGE,
+                project_name,
+                &mut files,
+            )?;
         }
         "svelte" => {
-            write_file(base, "package.json", SVELTE_PACKAGE_JSON, project_name, &mut files)?;
-            write_file(base, ".gitignore", SVELTE_GITIGNORE, project_name, &mut files)?;
+            write_file(
+                base,
+                "package.json",
+                SVELTE_PACKAGE_JSON,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                ".gitignore",
+                SVELTE_GITIGNORE,
+                project_name,
+                &mut files,
+            )?;
             write_file(base, "README.md", SVELTE_README, project_name, &mut files)?;
-            write_file(base, "src/routes/+page.svelte", SVELTE_PAGE, project_name, &mut files)?;
+            write_file(
+                base,
+                "src/routes/+page.svelte",
+                SVELTE_PAGE,
+                project_name,
+                &mut files,
+            )?;
         }
         "express-api" => {
-            write_file(base, "package.json", EXPRESS_PACKAGE_JSON, project_name, &mut files)?;
-            write_file(base, "tsconfig.json", EXPRESS_TSCONFIG, project_name, &mut files)?;
-            write_file(base, ".gitignore", EXPRESS_GITIGNORE, project_name, &mut files)?;
+            write_file(
+                base,
+                "package.json",
+                EXPRESS_PACKAGE_JSON,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "tsconfig.json",
+                EXPRESS_TSCONFIG,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                ".gitignore",
+                EXPRESS_GITIGNORE,
+                project_name,
+                &mut files,
+            )?;
             write_file(base, "README.md", EXPRESS_README, project_name, &mut files)?;
-            write_file(base, "src/index.ts", EXPRESS_INDEX_TS, project_name, &mut files)?;
+            write_file(
+                base,
+                "src/index.ts",
+                EXPRESS_INDEX_TS,
+                project_name,
+                &mut files,
+            )?;
         }
         "rust-cli" => {
-            write_file(base, "Cargo.toml", RUST_CLI_CARGO_TOML, project_name, &mut files)?;
-            write_file(base, ".gitignore", RUST_CLI_GITIGNORE, project_name, &mut files)?;
+            write_file(
+                base,
+                "Cargo.toml",
+                RUST_CLI_CARGO_TOML,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                ".gitignore",
+                RUST_CLI_GITIGNORE,
+                project_name,
+                &mut files,
+            )?;
             write_file(base, "README.md", RUST_CLI_README, project_name, &mut files)?;
-            write_file(base, "src/main.rs", RUST_CLI_MAIN_RS, project_name, &mut files)?;
+            write_file(
+                base,
+                "src/main.rs",
+                RUST_CLI_MAIN_RS,
+                project_name,
+                &mut files,
+            )?;
         }
         "rust-axum" => {
-            write_file(base, "Cargo.toml", RUST_AXUM_CARGO_TOML, project_name, &mut files)?;
-            write_file(base, ".gitignore", RUST_AXUM_GITIGNORE, project_name, &mut files)?;
-            write_file(base, "README.md", RUST_AXUM_README, project_name, &mut files)?;
-            write_file(base, "src/main.rs", RUST_AXUM_MAIN_RS, project_name, &mut files)?;
+            write_file(
+                base,
+                "Cargo.toml",
+                RUST_AXUM_CARGO_TOML,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                ".gitignore",
+                RUST_AXUM_GITIGNORE,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "README.md",
+                RUST_AXUM_README,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "src/main.rs",
+                RUST_AXUM_MAIN_RS,
+                project_name,
+                &mut files,
+            )?;
         }
         "python-fastapi" => {
-            write_file(base, "pyproject.toml", PYTHON_FASTAPI_PYPROJECT, project_name, &mut files)?;
-            write_file(base, "run.py", PYTHON_FASTAPI_RUN_PY, project_name, &mut files)?;
-            write_file(base, ".gitignore", PYTHON_FASTAPI_GITIGNORE, project_name, &mut files)?;
-            write_file(base, "README.md", PYTHON_FASTAPI_README, project_name, &mut files)?;
-            write_file(base, "src/main.py", PYTHON_FASTAPI_MAIN_PY, project_name, &mut files)?;
+            write_file(
+                base,
+                "pyproject.toml",
+                PYTHON_FASTAPI_PYPROJECT,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "run.py",
+                PYTHON_FASTAPI_RUN_PY,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                ".gitignore",
+                PYTHON_FASTAPI_GITIGNORE,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "README.md",
+                PYTHON_FASTAPI_README,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "src/main.py",
+                PYTHON_FASTAPI_MAIN_PY,
+                project_name,
+                &mut files,
+            )?;
         }
         "python-cli" => {
-            write_file(base, "pyproject.toml", PYTHON_CLI_PYPROJECT, project_name, &mut files)?;
-            write_file(base, ".gitignore", PYTHON_CLI_GITIGNORE, project_name, &mut files)?;
-            write_file(base, "README.md", PYTHON_CLI_README, project_name, &mut files)?;
-            write_file(base, "src/cli.py", PYTHON_CLI_CLI_PY, project_name, &mut files)?;
+            write_file(
+                base,
+                "pyproject.toml",
+                PYTHON_CLI_PYPROJECT,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                ".gitignore",
+                PYTHON_CLI_GITIGNORE,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "README.md",
+                PYTHON_CLI_README,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "src/cli.py",
+                PYTHON_CLI_CLI_PY,
+                project_name,
+                &mut files,
+            )?;
         }
         "go" => {
             write_file(base, "go.mod", GO_MOD, project_name, &mut files)?;
@@ -354,17 +569,65 @@ fn scaffold_template(
             write_file(base, "README.md", GO_README, project_name, &mut files)?;
         }
         "tauri-app" => {
-            write_file(base, "package.json", TAURI_APP_PACKAGE_JSON, project_name, &mut files)?;
-            write_file(base, ".gitignore", TAURI_APP_GITIGNORE, project_name, &mut files)?;
-            write_file(base, "README.md", TAURI_APP_README, project_name, &mut files)?;
-            write_file(base, "src/App.tsx", TAURI_APP_SRC_APP_TSX, project_name, &mut files)?;
-            write_file(base, "src-tauri/Cargo.toml", TAURI_APP_CARGO_TOML, project_name, &mut files)?;
-            write_file(base, "src-tauri/src/main.rs", TAURI_APP_MAIN_RS, project_name, &mut files)?;
-            write_file(base, "src-tauri/src/lib.rs", TAURI_APP_LIB_RS, project_name, &mut files)?;
+            write_file(
+                base,
+                "package.json",
+                TAURI_APP_PACKAGE_JSON,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                ".gitignore",
+                TAURI_APP_GITIGNORE,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "README.md",
+                TAURI_APP_README,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "src/App.tsx",
+                TAURI_APP_SRC_APP_TSX,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "src-tauri/Cargo.toml",
+                TAURI_APP_CARGO_TOML,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "src-tauri/src/main.rs",
+                TAURI_APP_MAIN_RS,
+                project_name,
+                &mut files,
+            )?;
+            write_file(
+                base,
+                "src-tauri/src/lib.rs",
+                TAURI_APP_LIB_RS,
+                project_name,
+                &mut files,
+            )?;
         }
         "blank" | _ => {
             write_file(base, "README.md", BLANK_README, project_name, &mut files)?;
-            write_file(base, ".gitignore", BLANK_GITIGNORE, project_name, &mut files)?;
+            write_file(
+                base,
+                ".gitignore",
+                BLANK_GITIGNORE,
+                project_name,
+                &mut files,
+            )?;
         }
     }
 
@@ -373,8 +636,7 @@ fn scaffold_template(
 
 fn seed_gsd_planning(base: &Path, archetype: &str, project_name: &str) -> Result<(), String> {
     let gsd_dir = base.join(".gsd");
-    fs::create_dir_all(&gsd_dir)
-        .map_err(|e| format!("Failed to create .gsd directory: {e}"))?;
+    fs::create_dir_all(&gsd_dir).map_err(|e| format!("Failed to create .gsd directory: {e}"))?;
 
     let content = match archetype {
         "web-app" => GSD_PLANNING_WEB_APP,
@@ -393,10 +655,7 @@ fn seed_gsd_planning(base: &Path, archetype: &str, project_name: &str) -> Result
 }
 
 fn run_git_init(base: &Path) -> bool {
-    let result = Command::new("git")
-        .arg("init")
-        .current_dir(base)
-        .output();
+    let result = Command::new("git").arg("init").current_dir(base).output();
 
     match result {
         Ok(output) if output.status.success() => {
@@ -551,8 +810,14 @@ mod tests {
         assert!(project_path.join("src/App.tsx").exists());
         // Verify substitution happened
         let pkg = fs::read_to_string(project_path.join("package.json")).unwrap();
-        assert!(pkg.contains("my-app"), "package.json should contain project name");
-        assert!(!pkg.contains("{{project_name}}"), "placeholder should be replaced");
+        assert!(
+            pkg.contains("my-app"),
+            "package.json should contain project name"
+        );
+        assert!(
+            !pkg.contains("{{project_name}}"),
+            "placeholder should be replaced"
+        );
     }
 
     #[test]
@@ -607,7 +872,10 @@ mod tests {
         let roadmap = project_path.join(".gsd/ROADMAP.md");
         assert!(roadmap.exists(), ".gsd/ROADMAP.md should exist");
         let content = fs::read_to_string(roadmap).unwrap();
-        assert!(content.contains("my-api"), "ROADMAP.md should contain project name");
+        assert!(
+            content.contains("my-api"),
+            "ROADMAP.md should contain project name"
+        );
     }
 
     #[test]

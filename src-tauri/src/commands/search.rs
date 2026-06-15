@@ -31,7 +31,7 @@ pub async fn global_search(
     limit: Option<i32>,
 ) -> Result<GlobalSearchResults, String> {
     let conn = db.read().await;
-    
+
     let limit = limit.unwrap_or(10);
     let fts_query = fts5_escape(&query);
     let like_pattern = format!("%{}%", query);

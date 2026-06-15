@@ -1476,9 +1476,8 @@ pub async fn gsd_get_verification(
 
     // Find matching phase directory (formats: "01", "01-02", "001", etc.)
     let phase_dir = find_phase_dir(&phases_dir, &phase_number.to_string())?;
-    let verification_path = find_phase_doc(&phase_dir, "VERIFICATION").ok_or_else(|| {
-        format!("No VERIFICATION.md found for phase {}", phase_number)
-    })?;
+    let verification_path = find_phase_doc(&phase_dir, "VERIFICATION")
+        .ok_or_else(|| format!("No VERIFICATION.md found for phase {}", phase_number))?;
 
     let content = fs::read_to_string(&verification_path).map_err(|e| e.to_string())?;
     parse_verification(&content, phase_number)
@@ -1728,7 +1727,8 @@ fn parse_plan_file(content: &str, path: &Path, phase_num: i32, plan_num: i32) ->
     warn_unknown_fields(&frontmatter, KNOWN_PLAN_KEYS, "PLAN.md");
 
     let plan_type = frontmatter.get("type").cloned();
-    let group_number = frontmatter.get("group_number")
+    let group_number = frontmatter
+        .get("group_number")
         .and_then(|v| v.parse::<i32>().ok());
     let autonomous = frontmatter
         .get("autonomous")
@@ -3234,10 +3234,9 @@ fn parse_uat_file(content: &str, path: &Path, phase_number: &str) -> GsdUatResul
     // Parse ## Test Results table rows
     let mut tests: Vec<UatTestResult> = Vec::new();
     if let Some(table_section) = extract_section(content, "test results") {
-        let row_re = Regex::new(
-            r"^\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.*?)\s*\|",
-        )
-        .ok();
+        let row_re =
+            Regex::new(r"^\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.*?)\s*\|")
+                .ok();
         for line in table_section.lines() {
             let trimmed = line.trim();
             if !trimmed.starts_with('|') || trimmed.contains("---") {
@@ -3267,8 +3266,7 @@ fn parse_uat_file(content: &str, path: &Path, phase_number: &str) -> GsdUatResul
                         || result_raw.to_lowercase().contains("pending")
                     {
                         "pending".to_string()
-                    } else if result_raw.contains('⏭')
-                        || result_raw.to_lowercase().contains("skip")
+                    } else if result_raw.contains('⏭') || result_raw.to_lowercase().contains("skip")
                     {
                         "skipped".to_string()
                     } else {
@@ -3297,8 +3295,8 @@ fn parse_uat_file(content: &str, path: &Path, phase_number: &str) -> GsdUatResul
 
     // Parse ## Issues Found
     let mut issues: Vec<UatIssue> = Vec::new();
-    let issues_section = extract_section(content, "issues found")
-        .or_else(|| extract_section(content, "issues"));
+    let issues_section =
+        extract_section(content, "issues found").or_else(|| extract_section(content, "issues"));
     if let Some(section) = issues_section {
         let issue_re = Regex::new(r"^\s*[-*]\s*\*\*\[(\w+)\]\*\*\s*(.+)$").ok();
         for line in section.lines() {
@@ -3309,8 +3307,7 @@ fn parse_uat_file(content: &str, path: &Path, phase_number: &str) -> GsdUatResul
             let mut pushed = false;
             if let Some(re) = &issue_re {
                 if let Some(caps) = re.captures(trimmed) {
-                    let sev_raw =
-                        caps.get(1).map_or("minor", |m| m.as_str()).to_lowercase();
+                    let sev_raw = caps.get(1).map_or("minor", |m| m.as_str()).to_lowercase();
                     let desc = caps.get(2).map_or("", |m| m.as_str()).trim().to_string();
                     let severity = match sev_raw.as_str() {
                         "blocker" | "critical" => "blocker".to_string(),
@@ -3319,7 +3316,10 @@ fn parse_uat_file(content: &str, path: &Path, phase_number: &str) -> GsdUatResul
                         _ => "minor".to_string(),
                     };
                     if !desc.is_empty() {
-                        issues.push(UatIssue { severity, description: desc });
+                        issues.push(UatIssue {
+                            severity,
+                            description: desc,
+                        });
                         pushed = true;
                     }
                 }
@@ -4319,7 +4319,11 @@ mod tests {
             "---\ntype: execute\n---\n<task type=\"code\"><name>X</name></task>",
         )
         .unwrap();
-        fs::write(phase_dir.join("13-SUMMARY.md"), "---\nphase: 13\n---\n## Done\n").unwrap();
+        fs::write(
+            phase_dir.join("13-SUMMARY.md"),
+            "---\nphase: 13\n---\n## Done\n",
+        )
+        .unwrap();
         fs::write(phase_dir.join("13-CONTEXT.md"), "## Decisions\n- chose X\n").unwrap();
         fs::write(phase_dir.join("13-VERIFICATION.md"), "## Result\nPASS\n").unwrap();
 
@@ -4370,15 +4374,14 @@ mod tests {
 - [x] **METHOD-01**: The audit method is grounded in best practice\n";
         let reqs = parse_requirements(content).unwrap();
         assert_eq!(reqs.len(), 2, "should parse 2 requirements");
-        assert_eq!(reqs[0].req_id, "QWIN-01", "extract bold ID, not auto REQ-001");
+        assert_eq!(
+            reqs[0].req_id, "QWIN-01",
+            "extract bold ID, not auto REQ-001"
+        );
         assert_eq!(reqs[0].description, "A quick-win backlog is produced");
         assert_eq!(reqs[1].req_id, "METHOD-01");
         assert_eq!(reqs[1].status.as_deref(), Some("done"), "[x] => done");
-        assert!(reqs[1]
-            .category
-            .as_deref()
-            .unwrap_or("")
-            .contains("Method"));
+        assert!(reqs[1].category.as_deref().unwrap_or("").contains("Method"));
     }
 
     #[test]
@@ -4414,15 +4417,31 @@ mod tests {
 **Goal**: x\n";
 
         let ms = parse_milestones(content).unwrap();
-        assert_eq!(ms.len(), 2, "should find exactly 2 H3 milestones (not the H2 sections)");
-        assert!(ms[0].name.contains("Foo"), "milestone 0 name: {}", ms[0].name);
+        assert_eq!(
+            ms.len(),
+            2,
+            "should find exactly 2 H3 milestones (not the H2 sections)"
+        );
+        assert!(
+            ms[0].name.contains("Foo"),
+            "milestone 0 name: {}",
+            ms[0].name
+        );
         assert_eq!(ms[0].phase_start, Some(1));
         assert_eq!(ms[0].phase_end, Some(2));
-        assert_eq!(ms[0].status.as_deref(), Some("completed"), "all [x] => completed");
+        assert_eq!(
+            ms[0].status.as_deref(),
+            Some("completed"),
+            "all [x] => completed"
+        );
         assert!(ms[1].name.contains("Bar"));
         assert_eq!(ms[1].phase_start, Some(3));
         assert_eq!(ms[1].phase_end, Some(4));
-        assert_ne!(ms[1].status.as_deref(), Some("completed"), "[ ] => not completed");
+        assert_ne!(
+            ms[1].status.as_deref(),
+            Some("completed"),
+            "[ ] => not completed"
+        );
     }
 
     #[test]
@@ -4501,8 +4520,16 @@ mod tests {
 
         let plan_files = find_plan_files(&phase_dir);
         let summary_files = find_summary_files(&phase_dir);
-        assert_eq!(plan_files.len(), 2, "Should find 2 plan files in fixture phase dir");
-        assert_eq!(summary_files.len(), 1, "Should find 1 summary file in fixture phase dir");
+        assert_eq!(
+            plan_files.len(),
+            2,
+            "Should find 2 plan files in fixture phase dir"
+        );
+        assert_eq!(
+            summary_files.len(),
+            1,
+            "Should find 1 summary file in fixture phase dir"
+        );
 
         // Build plans
         let mut plans = Vec::new();
@@ -4532,8 +4559,14 @@ mod tests {
         }
 
         // Plan 01 should match the summary; plan 02 should not
-        let plan1 = plans.iter().find(|p| p.plan_number == 1).expect("plan 01 must exist");
-        let plan2 = plans.iter().find(|p| p.plan_number == 2).expect("plan 02 must exist");
+        let plan1 = plans
+            .iter()
+            .find(|p| p.plan_number == 1)
+            .expect("plan 01 must exist");
+        let plan2 = plans
+            .iter()
+            .find(|p| p.plan_number == 2)
+            .expect("plan 02 must exist");
 
         assert!(
             summary_map.contains_key(&format!("{}-{}", plan1.phase_number, plan1.plan_number)),
@@ -4669,18 +4702,24 @@ completed: 2026-02-01T12:00:00Z
 
         // "2" must resolve to "02-normal-phase", not "02.1-hotfix"
         let found_int = find_phase_dir(&tmp, "2").unwrap();
-        assert_eq!(found_int, int_phase,
-            "Phase '2' must resolve to '02-normal-phase', not '02.1-hotfix'");
+        assert_eq!(
+            found_int, int_phase,
+            "Phase '2' must resolve to '02-normal-phase', not '02.1-hotfix'"
+        );
 
         // "2.1" must resolve to "02.1-hotfix", not "02-normal-phase"
         let found_dec = find_phase_dir(&tmp, "2.1").unwrap();
-        assert_eq!(found_dec, dec_phase,
-            "Phase '2.1' must resolve to '02.1-hotfix', not '02-normal-phase'");
+        assert_eq!(
+            found_dec, dec_phase,
+            "Phase '2.1' must resolve to '02.1-hotfix', not '02-normal-phase'"
+        );
 
         // Integer call sites: i32 phases still work via .to_string()
         let found_via_to_string = find_phase_dir(&tmp, &(2_i32).to_string()).unwrap();
-        assert_eq!(found_via_to_string, int_phase,
-            "i32 phase 2 converted via .to_string() must still resolve correctly");
+        assert_eq!(
+            found_via_to_string, int_phase,
+            "i32 phase 2 converted via .to_string() must still resolve correctly"
+        );
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -4705,7 +4744,10 @@ completed: 2026-02-01T12:00:00Z
         assert!(doc.present, "present must be true when file exists");
         assert_eq!(doc.doc_type, "SPEC");
         assert_eq!(doc.raw_content.as_deref(), Some(content));
-        assert!(doc.source_file.is_some(), "source_file must be Some when file exists");
+        assert!(
+            doc.source_file.is_some(),
+            "source_file must be Some when file exists"
+        );
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -4726,8 +4768,14 @@ completed: 2026-02-01T12:00:00Z
         let doc = read_phase_doc(&tmp, "SPEC.md", "SPEC");
         assert!(!doc.present, "present must be false when file is absent");
         assert_eq!(doc.doc_type, "SPEC");
-        assert!(doc.raw_content.is_none(), "raw_content must be None when absent");
-        assert!(doc.source_file.is_none(), "source_file must be None when absent");
+        assert!(
+            doc.raw_content.is_none(),
+            "raw_content must be None when absent"
+        );
+        assert!(
+            doc.source_file.is_none(),
+            "source_file must be None when absent"
+        );
 
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -4772,7 +4820,10 @@ completed: 2026-02-01T12:00:00Z
         // list_codebase_docs on a non-existent dir returns empty Vec (ARTF-03 absent case)
         let nonexistent = std::path::Path::new("/tmp/vcca_this_does_not_exist_artf03");
         let docs = list_codebase_docs(nonexistent);
-        assert!(docs.is_empty(), "Missing codebase dir must return empty Vec, not error");
+        assert!(
+            docs.is_empty(),
+            "Missing codebase dir must return empty Vec, not error"
+        );
     }
 
     #[test]
@@ -4800,7 +4851,10 @@ completed: 2026-02-01T12:00:00Z
         // Absent case
         let missing_path = tmp.join("RETROSPECTIVE.md");
         let doc_absent = read_process_doc(&missing_path, "retrospective");
-        assert!(!doc_absent.present, "present must be false when file is absent");
+        assert!(
+            !doc_absent.present,
+            "present must be false when file is absent"
+        );
         assert_eq!(doc_absent.doc_type, "retrospective");
         assert!(doc_absent.raw_content.is_none());
         assert!(doc_absent.source_file.is_none());

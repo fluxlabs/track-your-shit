@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
 use crate::models::{
-    KnowledgeFileEntry, KnowledgeFileTree, KnowledgeFolder, KnowledgeGraph,
-    KnowledgeGraphEdge, KnowledgeGraphNode, KnowledgeInput, KnowledgeSearchMatch,
-    MarkdownFolderSummary, MarkdownIndexProgress, MarkdownScanResult, ProjectDocs, ScannerCategory,
-    ScannerReport, ScannerSummary, TechStack,
+    KnowledgeFileEntry, KnowledgeFileTree, KnowledgeFolder, KnowledgeGraph, KnowledgeGraphEdge,
+    KnowledgeGraphNode, KnowledgeInput, KnowledgeSearchMatch, MarkdownFolderSummary,
+    MarkdownIndexProgress, MarkdownScanResult, ProjectDocs, ScannerCategory, ScannerReport,
+    ScannerSummary, TechStack,
 };
 use crate::security::safe_join;
 use rusqlite::params;
@@ -47,11 +47,53 @@ const MAX_FILES: usize = 2000;
 const MAX_DEPTH: usize = 10;
 const MAX_FILE_SIZE: u64 = 512 * 1024; // 512KB for content indexing
 const CODE_EXTENSIONS: &[&str] = &[
-    "ts", "tsx", "js", "jsx", "mjs", "cjs", "json", "yaml", "yml", "toml", "rs", "py",
-    "go", "java", "kt", "kts", "swift", "cpp", "cc", "c", "h", "hpp", "cs", "rb",
-    "php", "sh", "sql", "graphql", "gql", "html", "css", "scss", "sass", "less",
-    "mdx", "vue", "svelte", "lua", "pl", "r", "dart", "gradle", "xml", "ini", "conf",
-    "properties", "lock",
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs",
+    "json",
+    "yaml",
+    "yml",
+    "toml",
+    "rs",
+    "py",
+    "go",
+    "java",
+    "kt",
+    "kts",
+    "swift",
+    "cpp",
+    "cc",
+    "c",
+    "h",
+    "hpp",
+    "cs",
+    "rb",
+    "php",
+    "sh",
+    "sql",
+    "graphql",
+    "gql",
+    "html",
+    "css",
+    "scss",
+    "sass",
+    "less",
+    "mdx",
+    "vue",
+    "svelte",
+    "lua",
+    "pl",
+    "r",
+    "dart",
+    "gradle",
+    "xml",
+    "ini",
+    "conf",
+    "properties",
+    "lock",
 ];
 const CODE_FILENAMES: &[&str] = &[
     "Makefile",
@@ -276,7 +318,10 @@ fn walk_code_recursive(
             if file_name.starts_with('.') {
                 continue;
             }
-            let ext = entry_path.extension().and_then(|e| e.to_str()).unwrap_or("");
+            let ext = entry_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("");
             if ext == "md" {
                 continue;
             }
@@ -350,13 +395,21 @@ pub(crate) fn scan_markdown_metadata(base_path: &Path) -> Result<MarkdownScanRes
 
     // Collect warnings for large files
     let mut warnings = Vec::new();
-    let large_files: Vec<_> = files.iter().filter(|f| f.size_bytes > MAX_FILE_SIZE).collect();
+    let large_files: Vec<_> = files
+        .iter()
+        .filter(|f| f.size_bytes > MAX_FILE_SIZE)
+        .collect();
     if !large_files.is_empty() {
         warnings.push(format!(
             "{} file(s) exceed {}KB and will be skipped during indexing: {}",
             large_files.len(),
             MAX_FILE_SIZE / 1024,
-            large_files.iter().map(|f| f.display_name.as_str()).take(3).collect::<Vec<_>>().join(", ")
+            large_files
+                .iter()
+                .map(|f| f.display_name.as_str())
+                .take(3)
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
     }
 
@@ -860,9 +913,7 @@ fn parse_legacy_summary(content: &str, base_path: &Path) -> ScannerSummary {
                 let desc_raw = cols[3].trim().to_string();
 
                 // Report rows have paths starting with .planning/reports/
-                if path_raw.starts_with(".planning/reports/")
-                    && name_raw != "Executive Summary"
-                {
+                if path_raw.starts_with(".planning/reports/") && name_raw != "Executive Summary" {
                     // Verify the file exists
                     let full_path = base_path.join(&path_raw);
                     if full_path.exists() {
@@ -1667,9 +1718,7 @@ pub async fn write_project_file(
     let is_allowed_dir = allowed_prefixes.iter().any(|p| filename.starts_with(p));
 
     if !is_root_md && !is_allowed_dir {
-        return Err(
-            "Only .planning/ directories and root .md files are allowed".to_string(),
-        );
+        return Err("Only .planning/ directories and root .md files are allowed".to_string());
     }
 
     let file_path = safe_join(&path, &filename)?;

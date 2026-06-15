@@ -149,4 +149,3 @@ pub async fn pty_get_session_info(
     let manager = state.lock().await;
     Ok(manager.get_session_info(&session_id))
 }
-

@@ -439,7 +439,10 @@ mod tests {
         let mut map = HashMap::new();
         map.insert("gsd_state_version".to_string(), "1.0".to_string());
         map.insert("status".to_string(), "planning".to_string());
-        map.insert("novel_field_from_future_version".to_string(), "value".to_string());
+        map.insert(
+            "novel_field_from_future_version".to_string(),
+            "value".to_string(),
+        );
         map.insert("another_unknown_key".to_string(), "foo".to_string());
 
         // Must not panic
@@ -569,9 +572,18 @@ mod tests {
         );
 
         // Verify the actual values from the fixture
-        assert_eq!(nested.get("progress.total_phases").map(|s| s.as_str()), Some("11"));
-        assert_eq!(nested.get("progress.completed_phases").map(|s| s.as_str()), Some("10"));
-        assert_eq!(nested.get("progress.percent").map(|s| s.as_str()), Some("92"));
+        assert_eq!(
+            nested.get("progress.total_phases").map(|s| s.as_str()),
+            Some("11")
+        );
+        assert_eq!(
+            nested.get("progress.completed_phases").map(|s| s.as_str()),
+            Some("10")
+        );
+        assert_eq!(
+            nested.get("progress.percent").map(|s| s.as_str()),
+            Some("92")
+        );
     }
 
     #[test]
@@ -646,14 +658,23 @@ mod tests {
 
         // Temporarily unset GSD_WORKSTREAM to guarantee clean state
         let old = std::env::var("GSD_WORKSTREAM").ok();
-        unsafe { std::env::remove_var("GSD_WORKSTREAM"); }
+        unsafe {
+            std::env::remove_var("GSD_WORKSTREAM");
+        }
 
         let result = resolve_gsd_path(tmp.to_str().unwrap(), None, "STATE.md");
-        assert_eq!(result, tmp.join(".planning").join("STATE.md"),
-            "No workstream set — must fall back to flat .planning/STATE.md (regression)");
+        assert_eq!(
+            result,
+            tmp.join(".planning").join("STATE.md"),
+            "No workstream set — must fall back to flat .planning/STATE.md (regression)"
+        );
 
         // Restore env
-        if let Some(v) = old { unsafe { std::env::set_var("GSD_WORKSTREAM", v); } }
+        if let Some(v) = old {
+            unsafe {
+                std::env::set_var("GSD_WORKSTREAM", v);
+            }
+        }
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
@@ -672,13 +693,22 @@ mod tests {
         std::fs::create_dir_all(&ws_dir).unwrap();
 
         let old = std::env::var("GSD_WORKSTREAM").ok();
-        unsafe { std::env::remove_var("GSD_WORKSTREAM"); }
+        unsafe {
+            std::env::remove_var("GSD_WORKSTREAM");
+        }
 
         let result = resolve_gsd_path(tmp.to_str().unwrap(), Some("ws-a"), "STATE.md");
-        assert_eq!(result, ws_dir.join("STATE.md"),
-            "Explicit workstream 'ws-a' with existing dir must resolve to workstream subtree");
+        assert_eq!(
+            result,
+            ws_dir.join("STATE.md"),
+            "Explicit workstream 'ws-a' with existing dir must resolve to workstream subtree"
+        );
 
-        if let Some(v) = old { unsafe { std::env::set_var("GSD_WORKSTREAM", v); } }
+        if let Some(v) = old {
+            unsafe {
+                std::env::set_var("GSD_WORKSTREAM", v);
+            }
+        }
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
@@ -701,13 +731,22 @@ mod tests {
         std::fs::write(&ptr_path, "ws-b\n").unwrap();
 
         let old = std::env::var("GSD_WORKSTREAM").ok();
-        unsafe { std::env::remove_var("GSD_WORKSTREAM"); }
+        unsafe {
+            std::env::remove_var("GSD_WORKSTREAM");
+        }
 
         let result = resolve_gsd_path(tmp.to_str().unwrap(), None, "STATE.md");
-        assert_eq!(result, ws_dir.join("STATE.md"),
-            "active-workstream file 'ws-b' with existing dir must resolve to workstream subtree");
+        assert_eq!(
+            result,
+            ws_dir.join("STATE.md"),
+            "active-workstream file 'ws-b' with existing dir must resolve to workstream subtree"
+        );
 
-        if let Some(v) = old { unsafe { std::env::set_var("GSD_WORKSTREAM", v); } }
+        if let Some(v) = old {
+            unsafe {
+                std::env::set_var("GSD_WORKSTREAM", v);
+            }
+        }
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
@@ -725,17 +764,26 @@ mod tests {
         std::fs::create_dir_all(tmp.join(".planning")).unwrap();
 
         let old = std::env::var("GSD_WORKSTREAM").ok();
-        unsafe { std::env::remove_var("GSD_WORKSTREAM"); }
+        unsafe {
+            std::env::remove_var("GSD_WORKSTREAM");
+        }
 
         // Write active-workstream pointing to a non-existent dir
         let ptr_path = tmp.join(".planning").join("active-workstream");
         std::fs::write(&ptr_path, "nonexistent-ws").unwrap();
 
         let result = resolve_gsd_path(tmp.to_str().unwrap(), None, "STATE.md");
-        assert_eq!(result, tmp.join(".planning").join("STATE.md"),
-            "Missing workstream dir must fall back to flat .planning/ (self-healing)");
+        assert_eq!(
+            result,
+            tmp.join(".planning").join("STATE.md"),
+            "Missing workstream dir must fall back to flat .planning/ (self-healing)"
+        );
 
-        if let Some(v) = old { unsafe { std::env::set_var("GSD_WORKSTREAM", v); } }
+        if let Some(v) = old {
+            unsafe {
+                std::env::set_var("GSD_WORKSTREAM", v);
+            }
+        }
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
@@ -761,14 +809,25 @@ mod tests {
 
         // env overrides to ws-env
         let old = std::env::var("GSD_WORKSTREAM").ok();
-        unsafe { std::env::set_var("GSD_WORKSTREAM", "ws-env"); }
+        unsafe {
+            std::env::set_var("GSD_WORKSTREAM", "ws-env");
+        }
 
         let result = resolve_gsd_path(tmp.to_str().unwrap(), None, "STATE.md");
-        assert_eq!(result, ws_env.join("STATE.md"),
-            "GSD_WORKSTREAM env must take precedence over active-workstream file");
+        assert_eq!(
+            result,
+            ws_env.join("STATE.md"),
+            "GSD_WORKSTREAM env must take precedence over active-workstream file"
+        );
 
-        unsafe { std::env::remove_var("GSD_WORKSTREAM"); }
-        if let Some(v) = old { unsafe { std::env::set_var("GSD_WORKSTREAM", v); } }
+        unsafe {
+            std::env::remove_var("GSD_WORKSTREAM");
+        }
+        if let Some(v) = old {
+            unsafe {
+                std::env::set_var("GSD_WORKSTREAM", v);
+            }
+        }
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
@@ -777,19 +836,46 @@ mod tests {
     #[test]
     fn test_is_valid_workstream_slug_rejects_path_traversal() {
         // T-11-03: path traversal and invalid slug patterns must be rejected
-        assert!(!is_valid_workstream_slug(".."), ".. must be rejected (path traversal)");
+        assert!(
+            !is_valid_workstream_slug(".."),
+            ".. must be rejected (path traversal)"
+        );
         assert!(!is_valid_workstream_slug("/"), "/ must be rejected");
-        assert!(!is_valid_workstream_slug(""), "empty string must be rejected");
-        assert!(!is_valid_workstream_slug("../etc/passwd"), "path traversal must be rejected");
-        assert!(!is_valid_workstream_slug("-bad"), "leading dash must be rejected");
-        assert!(!is_valid_workstream_slug(&"a".repeat(64)), "64-char slug must be rejected (max < 64)");
-        assert!(!is_valid_workstream_slug("my ws"), "spaces must be rejected");
-        assert!(!is_valid_workstream_slug("ws/subdir"), "slash must be rejected");
+        assert!(
+            !is_valid_workstream_slug(""),
+            "empty string must be rejected"
+        );
+        assert!(
+            !is_valid_workstream_slug("../etc/passwd"),
+            "path traversal must be rejected"
+        );
+        assert!(
+            !is_valid_workstream_slug("-bad"),
+            "leading dash must be rejected"
+        );
+        assert!(
+            !is_valid_workstream_slug(&"a".repeat(64)),
+            "64-char slug must be rejected (max < 64)"
+        );
+        assert!(
+            !is_valid_workstream_slug("my ws"),
+            "spaces must be rejected"
+        );
+        assert!(
+            !is_valid_workstream_slug("ws/subdir"),
+            "slash must be rejected"
+        );
 
         // Valid slugs
         assert!(is_valid_workstream_slug("ws-a"), "ws-a is valid");
-        assert!(is_valid_workstream_slug("feature_branch"), "feature_branch is valid");
+        assert!(
+            is_valid_workstream_slug("feature_branch"),
+            "feature_branch is valid"
+        );
         assert!(is_valid_workstream_slug("ws123"), "ws123 is valid");
-        assert!(is_valid_workstream_slug(&"a".repeat(63)), "63-char slug must be accepted");
+        assert!(
+            is_valid_workstream_slug(&"a".repeat(63)),
+            "63-char slug must be accepted"
+        );
     }
 }

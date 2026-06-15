@@ -1,7 +1,7 @@
 // VCCA - First-Launch Onboarding Commands
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
-use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, USER_AGENT};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -51,7 +51,9 @@ pub struct ApiKeyValidationResult {
 }
 
 #[tauri::command]
-pub async fn onboarding_get_status(db: tauri::State<'_, DbState>) -> Result<OnboardingStatus, String> {
+pub async fn onboarding_get_status(
+    db: tauri::State<'_, DbState>,
+) -> Result<OnboardingStatus, String> {
     let (completed, completed_at, user_mode) = {
         let db = db.write().await;
         let conn = db.conn();
@@ -66,7 +68,11 @@ pub async fn onboarding_get_status(db: tauri::State<'_, DbState>) -> Result<Onbo
 
         let rows = stmt
             .query_map(
-                params![ONBOARDING_COMPLETED_KEY, ONBOARDING_COMPLETED_AT_KEY, USER_MODE_KEY],
+                params![
+                    ONBOARDING_COMPLETED_KEY,
+                    ONBOARDING_COMPLETED_AT_KEY,
+                    USER_MODE_KEY
+                ],
                 |row| {
                     let key: String = row.get(0)?;
                     let value: String = row.get(1)?;
@@ -320,7 +326,8 @@ async fn validate_api_key_with_provider(provider: &str, api_key: &str) -> Result
         PROVIDER_ANTHROPIC => {
             headers.insert(
                 "x-api-key",
-                HeaderValue::from_str(api_key).map_err(|_| "Invalid API key header value".to_string())?,
+                HeaderValue::from_str(api_key)
+                    .map_err(|_| "Invalid API key header value".to_string())?,
             );
             headers.insert("anthropic-version", HeaderValue::from_static("2023-06-01"));
 

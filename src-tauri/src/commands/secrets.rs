@@ -91,8 +91,8 @@ pub async fn set_secret(service: String, key: String, value: String) -> Result<(
     }
 
     // Store the secret
-    let entry = Entry::new(&svc, &key)
-        .map_err(|e| format!("Failed to create keychain entry: {}", e))?;
+    let entry =
+        Entry::new(&svc, &key).map_err(|e| format!("Failed to create keychain entry: {}", e))?;
     entry
         .set_password(&value)
         .map_err(|e| format!("Failed to store secret in keychain: {}", e))?;
@@ -121,8 +121,8 @@ pub async fn get_secret(service: String, key: String) -> Result<Option<String>, 
         return Err("Secret key cannot be empty".to_string());
     }
 
-    let entry = Entry::new(&svc, &key)
-        .map_err(|e| format!("Failed to create keychain entry: {}", e))?;
+    let entry =
+        Entry::new(&svc, &key).map_err(|e| format!("Failed to create keychain entry: {}", e))?;
 
     match entry.get_password() {
         Ok(password) => Ok(Some(password)),
@@ -147,8 +147,8 @@ pub async fn delete_secret(service: String, key: String) -> Result<(), String> {
         return Err("Cannot delete reserved key".to_string());
     }
 
-    let entry = Entry::new(&svc, &key)
-        .map_err(|e| format!("Failed to create keychain entry: {}", e))?;
+    let entry =
+        Entry::new(&svc, &key).map_err(|e| format!("Failed to create keychain entry: {}", e))?;
 
     match entry.delete_credential() {
         Ok(()) => {}
@@ -242,8 +242,8 @@ pub async fn has_secret(service: String, key: String) -> Result<bool, String> {
         return Err("Secret key cannot be empty".to_string());
     }
 
-    let entry = Entry::new(&svc, &key)
-        .map_err(|e| format!("Failed to create keychain entry: {}", e))?;
+    let entry =
+        Entry::new(&svc, &key).map_err(|e| format!("Failed to create keychain entry: {}", e))?;
 
     match entry.get_password() {
         Ok(_) => Ok(true),

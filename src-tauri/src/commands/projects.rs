@@ -3,8 +3,8 @@
 
 use crate::db::Database;
 use crate::models::{
-    GitInfo, ImportResult, MarkdownScanResult, Project, ProjectDocs,
-    ProjectUpdate, ProjectWithStats, RoadmapProgress, TechStack,
+    GitInfo, ImportResult, MarkdownScanResult, Project, ProjectDocs, ProjectUpdate,
+    ProjectWithStats, RoadmapProgress, TechStack,
 };
 use crate::pty::PtyManagerState;
 use crate::security::shell_escape_path;
@@ -269,10 +269,7 @@ pub async fn import_project_enhanced(
             tracing::error!("Failed to detect tech stack: {}", e);
             e
         })?;
-    tracing::info!(
-        "Tech stack detected: planning={}",
-        tech_stack.has_planning
-    );
+    tracing::info!("Tech stack detected: planning={}", tech_stack.has_planning);
 
     // Read project docs
     let docs: Option<ProjectDocs> =
@@ -353,9 +350,7 @@ pub async fn import_project_enhanced(
 
     // Handle based on import mode
     let (roadmap_synced, pty_session_id) = match import_mode {
-        "existing" => {
-            (false, None)
-        }
+        "existing" => (false, None),
         "gsd_native" => {
             // GSD native import - skip PTY conversion, sync directly from .planning/
             // Description was already extracted from docs earlier. If still None,
@@ -368,9 +363,12 @@ pub async fn import_project_enhanced(
                         let fallback_desc: Option<String> = content
                             .lines()
                             .map(|l| l.trim())
-                            .find(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with("<!--"))
+                            .find(|l| {
+                                !l.is_empty() && !l.starts_with('#') && !l.starts_with("<!--")
+                            })
                             .map(|l| {
-                                let cleaned = crate::commands::filesystem::strip_markdown_inline_pub(l);
+                                let cleaned =
+                                    crate::commands::filesystem::strip_markdown_inline_pub(l);
                                 if cleaned.len() > 200 {
                                     format!("{}...", &cleaned[..197])
                                 } else {
@@ -988,10 +986,14 @@ mod tests {
         let dir = unique_temp_dir("gsd_only");
         fs::create_dir_all(dir.join(".gsd")).expect("create .gsd");
         let version = detect_gsd_version(&dir);
-        assert_eq!(version, "gsd2-legacy",
-            ".gsd/-only project must classify as gsd2-legacy (freeze gate D-01)");
-        assert_ne!(version, "gsd2",
-            ".gsd/-only project must NEVER classify as gsd2 (would re-open the live .gsd/ path)");
+        assert_eq!(
+            version, "gsd2-legacy",
+            ".gsd/-only project must classify as gsd2-legacy (freeze gate D-01)"
+        );
+        assert_ne!(
+            version, "gsd2",
+            ".gsd/-only project must NEVER classify as gsd2 (would re-open the live .gsd/ path)"
+        );
         fs::remove_dir_all(&dir).ok();
     }
 
@@ -1003,10 +1005,14 @@ mod tests {
         fs::create_dir_all(dir.join(".gsd")).expect("create .gsd");
         fs::create_dir_all(dir.join(".planning")).expect("create .planning");
         let version = detect_gsd_version(&dir);
-        assert_eq!(version, "gsd2-legacy",
-            "project with both .gsd/ and .planning/ must classify as gsd2-legacy (D-01)");
-        assert_ne!(version, "gsd1",
-            "project with .gsd/ must not downgrade to gsd1 when .planning/ is also present");
+        assert_eq!(
+            version, "gsd2-legacy",
+            "project with both .gsd/ and .planning/ must classify as gsd2-legacy (D-01)"
+        );
+        assert_ne!(
+            version, "gsd1",
+            "project with .gsd/ must not downgrade to gsd1 when .planning/ is also present"
+        );
         fs::remove_dir_all(&dir).ok();
     }
 
