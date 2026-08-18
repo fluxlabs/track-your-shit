@@ -89,3 +89,7 @@ All files must include:
 ## Database
 
 SQLite database stored at the OS app data directory as `track-your-shit.db`. WAL mode enabled for concurrent reads. The `DbPool` pattern is critical — use `pool.read()` for SELECT queries and `pool.write()` for mutations to avoid contention.
+
+## Spike Findings
+
+- **Spike findings for vibe-coders-companion** (gsd-pi read-integration patterns, constraints, gotchas) → `Skill("spike-findings-vibe-coders-companion")`

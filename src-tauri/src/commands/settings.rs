@@ -95,7 +95,11 @@ pub async fn update_settings(
 
     upsert("theme", &settings.theme).map_err(|e| e.to_string())?;
     upsert("start_on_login", &settings.start_on_login.to_string()).map_err(|e| e.to_string())?;
-    upsert("default_cost_limit", &settings.default_cost_limit.to_string()).map_err(|e| e.to_string())?;
+    upsert(
+        "default_cost_limit",
+        &settings.default_cost_limit.to_string(),
+    )
+    .map_err(|e| e.to_string())?;
     upsert(
         "notifications_enabled",
         &settings.notifications_enabled.to_string(),
@@ -219,14 +223,30 @@ pub async fn import_settings(
 
     upsert("theme", &settings.theme).map_err(|e| e.to_string())?;
     upsert("start_on_login", &settings.start_on_login.to_string()).map_err(|e| e.to_string())?;
-    upsert("default_cost_limit", &settings.default_cost_limit.to_string()).map_err(|e| e.to_string())?;
-    upsert("notifications_enabled", &settings.notifications_enabled.to_string()).map_err(|e| e.to_string())?;
-    upsert("notify_on_complete", &settings.notify_on_complete.to_string()).map_err(|e| e.to_string())?;
+    upsert(
+        "default_cost_limit",
+        &settings.default_cost_limit.to_string(),
+    )
+    .map_err(|e| e.to_string())?;
+    upsert(
+        "notifications_enabled",
+        &settings.notifications_enabled.to_string(),
+    )
+    .map_err(|e| e.to_string())?;
+    upsert(
+        "notify_on_complete",
+        &settings.notify_on_complete.to_string(),
+    )
+    .map_err(|e| e.to_string())?;
     upsert("notify_on_error", &settings.notify_on_error.to_string()).map_err(|e| e.to_string())?;
     if let Some(threshold) = settings.notify_cost_threshold {
         upsert("notify_cost_threshold", &threshold.to_string()).map_err(|e| e.to_string())?;
     }
-    upsert("cost_thresholds_enabled", &settings.cost_thresholds_enabled.to_string()).map_err(|e| e.to_string())?;
+    upsert(
+        "cost_thresholds_enabled",
+        &settings.cost_thresholds_enabled.to_string(),
+    )
+    .map_err(|e| e.to_string())?;
     upsert("warn_cost", &settings.warn_cost.to_string()).map_err(|e| e.to_string())?;
     upsert("alert_cost", &settings.alert_cost.to_string()).map_err(|e| e.to_string())?;
     upsert("stop_cost", &settings.stop_cost.to_string()).map_err(|e| e.to_string())?;
@@ -234,10 +254,22 @@ pub async fn import_settings(
     upsert("ui_density", &settings.ui_density).map_err(|e| e.to_string())?;
     upsert("font_size_scale", &settings.font_size_scale.to_string()).map_err(|e| e.to_string())?;
     upsert("font_family", &settings.font_family).map_err(|e| e.to_string())?;
-    upsert("auto_open_last_project", &settings.auto_open_last_project.to_string()).map_err(|e| e.to_string())?;
+    upsert(
+        "auto_open_last_project",
+        &settings.auto_open_last_project.to_string(),
+    )
+    .map_err(|e| e.to_string())?;
     upsert("window_state", &settings.window_state).map_err(|e| e.to_string())?;
-    upsert("notify_on_phase_complete", &settings.notify_on_phase_complete.to_string()).map_err(|e| e.to_string())?;
-    upsert("notify_on_cost_warning", &settings.notify_on_cost_warning.to_string()).map_err(|e| e.to_string())?;
+    upsert(
+        "notify_on_phase_complete",
+        &settings.notify_on_phase_complete.to_string(),
+    )
+    .map_err(|e| e.to_string())?;
+    upsert(
+        "notify_on_cost_warning",
+        &settings.notify_on_cost_warning.to_string(),
+    )
+    .map_err(|e| e.to_string())?;
     upsert("debug_logging", &settings.debug_logging.to_string()).map_err(|e| e.to_string())?;
     upsert("use_tmux", &settings.use_tmux.to_string()).map_err(|e| e.to_string())?;
     upsert("user_mode", &settings.user_mode).map_err(|e| e.to_string())?;

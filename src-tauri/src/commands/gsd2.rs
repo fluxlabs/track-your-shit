@@ -467,10 +467,9 @@ pub fn get_health_from_dir(project_path: &str) -> Gsd2Health {
     let budget_spent = sum_costs_from_metrics(project_path);
 
     // 2. Parse STATE.md body sections
-    let state_content = std::fs::read_to_string(
-        Path::new(project_path).join(".gsd").join("STATE.md"),
-    )
-    .unwrap_or_default();
+    let state_content =
+        std::fs::read_to_string(Path::new(project_path).join(".gsd").join("STATE.md"))
+            .unwrap_or_default();
     let parsed = parse_gsd2_state_md(&state_content);
 
     // 3. Derive M/S/T progress counters (reuses existing filesystem walker)
@@ -531,17 +530,14 @@ fn parse_roadmap_slices(content: &str) -> Vec<Gsd2Slice> {
 
     // Find the "## Slices" section (case-insensitive)
     let lower = content.to_lowercase();
-    let section_start = lower
-        .lines()
-        .enumerate()
-        .find_map(|(i, line)| {
-            let t = line.trim();
-            if t == "## slices" || t.starts_with("## slices ") || t.starts_with("## slices\t") {
-                Some(i)
-            } else {
-                None
-            }
-        });
+    let section_start = lower.lines().enumerate().find_map(|(i, line)| {
+        let t = line.trim();
+        if t == "## slices" || t.starts_with("## slices ") || t.starts_with("## slices\t") {
+            Some(i)
+        } else {
+            None
+        }
+    });
 
     let start_line = match section_start {
         Some(i) => i + 1,
@@ -582,17 +578,14 @@ fn parse_plan_tasks(content: &str) -> Vec<Gsd2Task> {
 
     // Find the "## Tasks" section
     let lower = content.to_lowercase();
-    let section_start = lower
-        .lines()
-        .enumerate()
-        .find_map(|(i, line)| {
-            let t = line.trim();
-            if t == "## tasks" || t.starts_with("## tasks ") || t.starts_with("## tasks\t") {
-                Some(i)
-            } else {
-                None
-            }
-        });
+    let section_start = lower.lines().enumerate().find_map(|(i, line)| {
+        let t = line.trim();
+        if t == "## tasks" || t.starts_with("## tasks ") || t.starts_with("## tasks\t") {
+            Some(i)
+        } else {
+            None
+        }
+    });
 
     let start_line = match section_start {
         Some(i) => i + 1,
@@ -804,8 +797,7 @@ pub fn list_milestones_from_dir(milestones_dir: &Path) -> Vec<Gsd2Milestone> {
         };
 
         // Get title from ROADMAP.md frontmatter or use dir_name
-        let title = if let Some(roadmap_file) = resolve_file_by_id(&milestone_dir, &id, "ROADMAP")
-        {
+        let title = if let Some(roadmap_file) = resolve_file_by_id(&milestone_dir, &id, "ROADMAP") {
             let roadmap_path = milestone_dir.join(&roadmap_file);
             std::fs::read_to_string(&roadmap_path)
                 .ok()
@@ -931,8 +923,7 @@ pub fn derive_state_from_dir(project_path: &str) -> Gsd2State {
                 tasks_total += 1;
                 if task.done {
                     tasks_done += 1;
-                } else if active_slice_id.as_deref() == Some(&slice.id)
-                    && active_task_id.is_none()
+                } else if active_slice_id.as_deref() == Some(&slice.id) && active_task_id.is_none()
                 {
                     active_task_id = Some(task.id.clone());
                 }
@@ -1072,9 +1063,7 @@ pub async fn gsd2_get_slice(
                 None => {
                     // Fall back to flat
                     let flat_file = resolve_file_by_id(&milestone_dir, &slice_id, "PLAN")
-                        .ok_or_else(|| {
-                            format!("PLAN.md not found for slice '{}'", slice_id)
-                        })?;
+                        .ok_or_else(|| format!("PLAN.md not found for slice '{}'", slice_id))?;
                     (milestone_dir.clone(), flat_file)
                 }
             }
@@ -1098,9 +1087,10 @@ pub async fn gsd2_get_slice(
                 .ok()
                 .and_then(|rc| {
                     let slices = parse_roadmap_slices(&rc);
-                    slices.into_iter().find(|s| s.id == slice_id).map(|s| {
-                        (s.title, s.done, s.risk, s.dependencies)
-                    })
+                    slices
+                        .into_iter()
+                        .find(|s| s.id == slice_id)
+                        .map(|s| (s.title, s.done, s.risk, s.dependencies))
                 })
                 .unwrap_or_else(|| (slice_id.clone(), false, None, Vec::new()))
         } else {
@@ -1392,7 +1382,11 @@ pub async fn gsd2_remove_worktree(
             );
         }
         Err(e) => {
-            tracing::warn!("Failed to run git branch -D {} (non-fatal): {}", branch_name, e);
+            tracing::warn!(
+                "Failed to run git branch -D {} (non-fatal): {}",
+                branch_name,
+                e
+            );
         }
         _ => {}
     }
@@ -1493,10 +1487,7 @@ pub async fn gsd2_headless_query(
             .get("next")
             .and_then(|v| v.as_str())
             .map(String::from),
-        cost: snapshot
-            .get("cost")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0),
+        cost: snapshot.get("cost").and_then(|v| v.as_f64()).unwrap_or(0.0),
     })
 }
 
@@ -1761,13 +1752,19 @@ fn count_table_rows(content: &str, prefix: char, last_n: usize) -> (u32, Vec<Str
         }
         // After prefix char must be digits followed by ' |' or ' –' or ' —' etc.
         let rest = &trimmed[1..];
-        let digit_end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+        let digit_end = rest
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(rest.len());
         if digit_end == 0 {
             continue; // no digits after prefix
         }
         let after_digits = &rest[digit_end..];
         // Accept either ' |' separator (GSD table format) or space then any non-empty content
-        if after_digits.starts_with(" |") || after_digits.starts_with(" –") || after_digits.starts_with(" —") || after_digits.starts_with(". ") {
+        if after_digits.starts_with(" |")
+            || after_digits.starts_with(" –")
+            || after_digits.starts_with(" —")
+            || after_digits.starts_with(". ")
+        {
             count += 1;
             matched.push(trimmed.to_string());
         }
@@ -1847,11 +1844,17 @@ pub async fn gsd2_get_steer_content(
 
     let overrides_path = Path::new(&project_path).join(".gsd").join("OVERRIDES.md");
     if overrides_path.exists() {
-        let content = std::fs::read_to_string(&overrides_path)
-            .map_err(|e| format!("Read failed: {}", e))?;
-        Ok(SteerData { content, exists: true })
+        let content =
+            std::fs::read_to_string(&overrides_path).map_err(|e| format!("Read failed: {}", e))?;
+        Ok(SteerData {
+            content,
+            exists: true,
+        })
     } else {
-        Ok(SteerData { content: String::new(), exists: false })
+        Ok(SteerData {
+            content: String::new(),
+            exists: false,
+        })
     }
 }
 
@@ -1901,8 +1904,8 @@ pub async fn gsd2_get_undo_info(
         });
     }
 
-    let completed_content = std::fs::read_to_string(&completed_path)
-        .map_err(|e| format!("Read failed: {}", e))?;
+    let completed_content =
+        std::fs::read_to_string(&completed_path).map_err(|e| format!("Read failed: {}", e))?;
     let completed_json: serde_json::Value =
         serde_json::from_str(&completed_content).unwrap_or(serde_json::json!([]));
 
@@ -2001,7 +2004,10 @@ pub async fn gsd2_get_recovery_info(
     let lock_json: serde_json::Value =
         serde_json::from_str(&lock_content).unwrap_or(serde_json::json!({}));
 
-    let pid: Option<u32> = lock_json.get("pid").and_then(|v| v.as_u64()).map(|v| v as u32);
+    let pid: Option<u32> = lock_json
+        .get("pid")
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32);
     let started_at = lock_json
         .get("startedAt")
         .and_then(|v| v.as_str())
@@ -2044,7 +2050,11 @@ pub async fn gsd2_get_recovery_info(
                 "Agent is planning ({}). Wait for completion.",
                 unit_id.as_deref().unwrap_or("unknown")
             ),
-            Some(ut) => format!("Agent is running {} ({}). Wait for completion.", ut, unit_id.as_deref().unwrap_or("unknown")),
+            Some(ut) => format!(
+                "Agent is running {} ({}). Wait for completion.",
+                ut,
+                unit_id.as_deref().unwrap_or("unknown")
+            ),
             None => "Agent process is alive. Wait for it to finish.".to_string(),
         }
     };
@@ -2226,54 +2236,61 @@ fn parse_metrics_json(
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            let started_at = item
-                .get("startedAt")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
-            let finished_at = item
-                .get("finishedAt")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
-            let cost = item
-                .get("cost")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
+            let started_at = item.get("startedAt").and_then(|v| v.as_i64()).unwrap_or(0);
+            let finished_at = item.get("finishedAt").and_then(|v| v.as_i64()).unwrap_or(0);
+            let cost = item.get("cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
             // Token fields: try flat top-level keys first (older metrics format),
             // then fall back to nested `tokens` sub-object (current format).
             let tokens_obj = item.get("tokens");
             let input_tokens = item
                 .get("inputTokens")
                 .and_then(|v| v.as_i64())
-                .or_else(|| tokens_obj.and_then(|t| t.get("input")).and_then(|v| v.as_i64()))
+                .or_else(|| {
+                    tokens_obj
+                        .and_then(|t| t.get("input"))
+                        .and_then(|v| v.as_i64())
+                })
                 .unwrap_or(0);
             let output_tokens = item
                 .get("outputTokens")
                 .and_then(|v| v.as_i64())
-                .or_else(|| tokens_obj.and_then(|t| t.get("output")).and_then(|v| v.as_i64()))
+                .or_else(|| {
+                    tokens_obj
+                        .and_then(|t| t.get("output"))
+                        .and_then(|v| v.as_i64())
+                })
                 .unwrap_or(0);
             let cache_read_tokens = item
                 .get("cacheRead")
                 .and_then(|v| v.as_i64())
-                .or_else(|| tokens_obj.and_then(|t| t.get("cacheRead")).and_then(|v| v.as_i64()))
+                .or_else(|| {
+                    tokens_obj
+                        .and_then(|t| t.get("cacheRead"))
+                        .and_then(|v| v.as_i64())
+                })
                 .unwrap_or(0);
             let cache_write_tokens = item
                 .get("cacheWrite")
                 .and_then(|v| v.as_i64())
-                .or_else(|| tokens_obj.and_then(|t| t.get("cacheWrite")).and_then(|v| v.as_i64()))
+                .or_else(|| {
+                    tokens_obj
+                        .and_then(|t| t.get("cacheWrite"))
+                        .and_then(|v| v.as_i64())
+                })
                 .unwrap_or(0);
             let total_tokens = item
                 .get("totalTokens")
                 .and_then(|v| v.as_i64())
-                .or_else(|| tokens_obj.and_then(|t| t.get("total")).and_then(|v| v.as_i64()))
-                .unwrap_or_else(|| input_tokens + output_tokens + cache_read_tokens + cache_write_tokens);
-            let tool_calls = item
-                .get("toolCalls")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
-            let tier = item
-                .get("tier")
-                .and_then(|v| v.as_str())
-                .map(String::from);
+                .or_else(|| {
+                    tokens_obj
+                        .and_then(|t| t.get("total"))
+                        .and_then(|v| v.as_i64())
+                })
+                .unwrap_or_else(|| {
+                    input_tokens + output_tokens + cache_read_tokens + cache_write_tokens
+                });
+            let tool_calls = item.get("toolCalls").and_then(|v| v.as_i64()).unwrap_or(0);
+            let tier = item.get("tier").and_then(|v| v.as_str()).map(String::from);
             let model_downgraded = item
                 .get("modelDowngraded")
                 .and_then(|v| v.as_bool())
@@ -2318,7 +2335,13 @@ fn parse_metrics_json(
     };
 
     // ---- By phase ----
-    let phase_order = ["research", "planning", "execution", "completion", "reassessment"];
+    let phase_order = [
+        "research",
+        "planning",
+        "execution",
+        "completion",
+        "reassessment",
+    ];
     let mut phase_map: std::collections::HashMap<&'static str, (u32, f64, i64, i64)> =
         std::collections::HashMap::new();
     for p in &phase_order {
@@ -2335,13 +2358,15 @@ fn parse_metrics_json(
     let by_phase: Vec<PhaseAggregate> = phase_order
         .iter()
         .filter_map(|p| {
-            phase_map.get(p).map(|&(units, cost, tokens, duration_ms)| PhaseAggregate {
-                phase: p.to_string(),
-                units,
-                cost,
-                tokens,
-                duration_ms,
-            })
+            phase_map
+                .get(p)
+                .map(|&(units, cost, tokens, duration_ms)| PhaseAggregate {
+                    phase: p.to_string(),
+                    units,
+                    cost,
+                    tokens,
+                    duration_ms,
+                })
         })
         .collect();
 
@@ -2365,13 +2390,15 @@ fn parse_metrics_json(
     }
     let mut by_slice: Vec<SliceAggregate> = slice_map
         .into_iter()
-        .map(|(slice_id, (units, cost, tokens, duration_ms))| SliceAggregate {
-            slice_id,
-            units,
-            cost,
-            tokens,
-            duration_ms,
-        })
+        .map(
+            |(slice_id, (units, cost, tokens, duration_ms))| SliceAggregate {
+                slice_id,
+                units,
+                cost,
+                tokens,
+                duration_ms,
+            },
+        )
         .collect();
     by_slice.sort_by(|a, b| a.slice_id.cmp(&b.slice_id));
 
@@ -2393,7 +2420,11 @@ fn parse_metrics_json(
             tokens,
         })
         .collect();
-    by_model.sort_by(|a, b| b.cost.partial_cmp(&a.cost).unwrap_or(std::cmp::Ordering::Equal));
+    by_model.sort_by(|a, b| {
+        b.cost
+            .partial_cmp(&a.cost)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     (records, totals, by_phase, by_slice, by_model)
 }
@@ -2497,10 +2528,7 @@ fn parse_hooks_from_prefs(content: &str) -> Vec<HookEntry> {
             while i < lines.len() {
                 let current = lines[i];
                 // A non-indented non-empty line ends the section
-                if !current.is_empty()
-                    && !current.starts_with(' ')
-                    && !current.starts_with('\t')
-                {
+                if !current.is_empty() && !current.starts_with(' ') && !current.starts_with('\t') {
                     break;
                 }
                 let trimmed = current.trim();
@@ -2518,9 +2546,7 @@ fn parse_hooks_from_prefs(content: &str) -> Vec<HookEntry> {
                         let inner = lines[i];
                         // Block ends when we hit a non-indented non-empty line
                         // or another "- name:" at the same indentation level
-                        if !inner.is_empty()
-                            && !inner.starts_with(' ')
-                            && !inner.starts_with('\t')
+                        if !inner.is_empty() && !inner.starts_with(' ') && !inner.starts_with('\t')
                         {
                             break;
                         }
@@ -2529,7 +2555,9 @@ fn parse_hooks_from_prefs(content: &str) -> Vec<HookEntry> {
                             // Next hook block — don't consume
                             break;
                         }
-                        if inner_trimmed.starts_with("after:") || inner_trimmed.starts_with("before:") {
+                        if inner_trimmed.starts_with("after:")
+                            || inner_trimmed.starts_with("before:")
+                        {
                             in_trigger_list = true;
                         } else if inner_trimmed.starts_with("action:") {
                             in_trigger_list = false;
@@ -2545,9 +2573,7 @@ fn parse_hooks_from_prefs(content: &str) -> Vec<HookEntry> {
                                 .ok();
                         } else if in_trigger_list && inner_trimmed.starts_with("- ") {
                             triggers.push(inner_trimmed[2..].trim().to_string());
-                        } else if !inner_trimmed.is_empty()
-                            && !inner_trimmed.starts_with('#')
-                        {
+                        } else if !inner_trimmed.is_empty() && !inner_trimmed.starts_with('#') {
                             // Any other key resets trigger list mode
                             in_trigger_list = false;
                         }
@@ -2649,42 +2675,42 @@ pub async fn gsd2_get_git_summary(
     let is_dirty = staged_count > 0 || unstaged_count > 0 || untracked_count > 0;
 
     // 3. Recent commits
-    let recent_commits =
-        if let Some(log_out) = run_git(&["log", "--format=%H|%s|%an|%ar", "-20"]) {
-            log_out
-                .lines()
-                .filter_map(|line| {
-                    let parts: Vec<&str> = line.splitn(4, '|').collect();
-                    if parts.len() == 4 {
-                        Some(GitCommitEntry {
-                            hash: parts[0].to_string(),
-                            message: parts[1].to_string(),
-                            author: parts[2].to_string(),
-                            date: parts[3].to_string(),
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        } else {
-            vec![]
-        };
+    let recent_commits = if let Some(log_out) = run_git(&["log", "--format=%H|%s|%an|%ar", "-20"]) {
+        log_out
+            .lines()
+            .filter_map(|line| {
+                let parts: Vec<&str> = line.splitn(4, '|').collect();
+                if parts.len() == 4 {
+                    Some(GitCommitEntry {
+                        hash: parts[0].to_string(),
+                        message: parts[1].to_string(),
+                        author: parts[2].to_string(),
+                        date: parts[3].to_string(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
+    } else {
+        vec![]
+    };
 
     // 4. Ahead / behind upstream
-    let (ahead, behind) =
-        if let Some(ab_out) = run_git(&["rev-list", "--left-right", "--count", "@{upstream}...HEAD"]) {
-            let parts: Vec<&str> = ab_out.split_whitespace().collect();
-            if parts.len() == 2 {
-                let behind = parts[0].parse::<u32>().unwrap_or(0);
-                let ahead = parts[1].parse::<u32>().unwrap_or(0);
-                (ahead, behind)
-            } else {
-                (0, 0)
-            }
+    let (ahead, behind) = if let Some(ab_out) =
+        run_git(&["rev-list", "--left-right", "--count", "@{upstream}...HEAD"])
+    {
+        let parts: Vec<&str> = ab_out.split_whitespace().collect();
+        if parts.len() == 2 {
+            let behind = parts[0].parse::<u32>().unwrap_or(0);
+            let ahead = parts[1].parse::<u32>().unwrap_or(0);
+            (ahead, behind)
         } else {
             (0, 0)
-        };
+        }
+    } else {
+        (0, 0)
+    };
 
     Ok(GitSummaryData {
         branch,
@@ -3025,7 +3051,10 @@ pub struct TimelineEntryCompat {
 /// Returns (ordered_path, slack_map) where slack_map maps id → slack value.
 fn compute_critical_path(nodes: &[(String, Vec<String>)]) -> CriticalPathInfo {
     if nodes.is_empty() {
-        return CriticalPathInfo { path: Vec::new(), slack_map: Vec::new() };
+        return CriticalPathInfo {
+            path: Vec::new(),
+            slack_map: Vec::new(),
+        };
     }
 
     // Build adjacency list: predecessor → successors
@@ -3040,7 +3069,9 @@ fn compute_critical_path(nodes: &[(String, Vec<String>)]) -> CriticalPathInfo {
     for (id, deps) in nodes {
         for dep in deps {
             // dep → id edge (dep must finish before id)
-            adj.entry(dep.clone()).or_insert_with(Vec::new).push(id.clone());
+            adj.entry(dep.clone())
+                .or_insert_with(Vec::new)
+                .push(id.clone());
             *in_degree.entry(id.clone()).or_insert(0) += 1;
         }
     }
@@ -3106,7 +3137,10 @@ fn compute_critical_path(nodes: &[(String, Vec<String>)]) -> CriticalPathInfo {
     // Compute slack: max_dist - dist[node]
     let slack_map: Vec<SlackEntry> = dist
         .iter()
-        .map(|(id, &d)| SlackEntry { id: id.clone(), slack: max_dist - d })
+        .map(|(id, &d)| SlackEntry {
+            id: id.clone(),
+            slack: max_dist - d,
+        })
         .collect();
 
     CriticalPathInfo { path, slack_map }
@@ -3201,7 +3235,10 @@ fn load_slice_changelog(slice_dir: &Path, slice_id: &str) -> Option<ChangelogEnt
     let mut in_files_section = false;
     for line in body.lines() {
         let trimmed = line.trim();
-        if trimmed.contains("Files Created") || trimmed.contains("Files Modified") || trimmed.contains("files_modified") {
+        if trimmed.contains("Files Created")
+            || trimmed.contains("Files Modified")
+            || trimmed.contains("files_modified")
+        {
             in_files_section = true;
             continue;
         }
@@ -3222,7 +3259,11 @@ fn load_slice_changelog(slice_dir: &Path, slice_id: &str) -> Option<ChangelogEnt
                     if let Some(close) = after_open.find('`') {
                         path_part = after_open[..close].to_string();
                         let rest = &after_open[close + 1..];
-                        desc_part = rest.trim_start_matches(" — ").trim_start_matches(" - ").trim().to_string();
+                        desc_part = rest
+                            .trim_start_matches(" — ")
+                            .trim_start_matches(" - ")
+                            .trim()
+                            .to_string();
                     } else {
                         path_part = after_open.to_string();
                         desc_part = String::new();
@@ -3232,7 +3273,10 @@ fn load_slice_changelog(slice_dir: &Path, slice_id: &str) -> Option<ChangelogEnt
                     desc_part = String::new();
                 }
                 if !path_part.is_empty() {
-                    files_modified.push(FileModified2 { path: path_part, description: desc_part });
+                    files_modified.push(FileModified2 {
+                        path: path_part,
+                        description: desc_part,
+                    });
                 }
             }
         }
@@ -3266,29 +3310,50 @@ fn get_discussion_state(milestone_dir: &Path, milestone_id: &str) -> String {
 // ============================================================
 
 /// Read agent activity from the auto.lock file.
-fn get_agent_activity(project_path: &str, total_slices: u32, completed_units: u32) -> AgentActivityInfo {
+fn get_agent_activity(
+    project_path: &str,
+    total_slices: u32,
+    completed_units: u32,
+) -> AgentActivityInfo {
     let gsd_dir = Path::new(project_path).join(".gsd");
     let lock_paths = [
         gsd_dir.join("auto.lock"),
         gsd_dir.join("runtime").join("auto.lock"),
     ];
 
-    let lock_content = lock_paths.iter().find_map(|p| std::fs::read_to_string(p).ok());
+    let lock_content = lock_paths
+        .iter()
+        .find_map(|p| std::fs::read_to_string(p).ok());
 
     if let Some(content) = lock_content {
         let json: serde_json::Value = serde_json::from_str(&content).unwrap_or_default();
 
         let pid = json.get("pid").and_then(|v| v.as_i64()).map(|p| p as i32);
-        let unit_type = json.get("unitType").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let unit_id = json.get("unitId").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let unit_started_at = json.get("unitStartedAt").and_then(|v| v.as_str()).map(String::from);
+        let unit_type = json
+            .get("unitType")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let unit_id = json
+            .get("unitId")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let unit_started_at = json
+            .get("unitStartedAt")
+            .and_then(|v| v.as_str())
+            .map(String::from);
 
         // Check PID liveness
         let is_alive = pid.map_or(false, |p| {
             #[cfg(unix)]
-            unsafe { libc::kill(p, 0) == 0 }
+            unsafe {
+                libc::kill(p, 0) == 0
+            }
             #[cfg(not(unix))]
-            { false }
+            {
+                false
+            }
         });
 
         // Compute elapsed_ms from unitStartedAt
@@ -3358,9 +3423,21 @@ pub async fn gsd2_get_visualizer_data(
 
     // Get health for active IDs
     let health_raw = get_health_from_dir(&project_path);
-    let active_milestone_id = health_raw.active_milestone_id.as_deref().unwrap_or("").to_string();
-    let active_slice_id = health_raw.active_slice_id.as_deref().unwrap_or("").to_string();
-    let active_task_id = health_raw.active_task_id.as_deref().unwrap_or("").to_string();
+    let active_milestone_id = health_raw
+        .active_milestone_id
+        .as_deref()
+        .unwrap_or("")
+        .to_string();
+    let active_slice_id = health_raw
+        .active_slice_id
+        .as_deref()
+        .unwrap_or("")
+        .to_string();
+    let active_task_id = health_raw
+        .active_task_id
+        .as_deref()
+        .unwrap_or("")
+        .to_string();
 
     // Parse metrics via shared helper
     let metrics_path = Path::new(&project_path).join(".gsd").join("metrics.json");
@@ -3409,9 +3486,16 @@ pub async fn gsd2_get_visualizer_data(
     // Build backward-compat cost_by_model
     let mut cost_by_model_compat: Vec<CostByKeyCompat> = by_model
         .iter()
-        .map(|m| CostByKeyCompat { key: m.model.clone(), cost: m.cost })
+        .map(|m| CostByKeyCompat {
+            key: m.model.clone(),
+            cost: m.cost,
+        })
         .collect();
-    cost_by_model_compat.sort_by(|a, b| b.cost.partial_cmp(&a.cost).unwrap_or(std::cmp::Ordering::Equal));
+    cost_by_model_compat.sort_by(|a, b| {
+        b.cost
+            .partial_cmp(&a.cost)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // --- Collect all incomplete slice dependencies for critical path ---
     // Build nodes as (slice_id_qualified, Vec<dep_id_qualified>)
@@ -3421,9 +3505,17 @@ pub async fn gsd2_get_visualizer_data(
             if !s.done {
                 let qualified_id = format!("{}/{}", m.id, s.id);
                 // Dependencies reference other slices — qualify them if not already
-                let qualified_deps: Vec<String> = s.dependencies.iter().map(|d| {
-                    if d.contains('/') { d.clone() } else { format!("{}/{}", m.id, d) }
-                }).collect();
+                let qualified_deps: Vec<String> = s
+                    .dependencies
+                    .iter()
+                    .map(|d| {
+                        if d.contains('/') {
+                            d.clone()
+                        } else {
+                            format!("{}/{}", m.id, d)
+                        }
+                    })
+                    .collect();
                 cp_nodes.push((qualified_id, qualified_deps));
             }
         }
@@ -3431,7 +3523,8 @@ pub async fn gsd2_get_visualizer_data(
     let critical_path = compute_critical_path(&cp_nodes);
 
     // Build slack lookup map for O(1) access
-    let slack_lookup: HashMap<String, i64> = critical_path.slack_map
+    let slack_lookup: HashMap<String, i64> = critical_path
+        .slack_map
         .iter()
         .map(|e| (e.id.clone(), e.slack))
         .collect();
@@ -3442,194 +3535,231 @@ pub async fn gsd2_get_visualizer_data(
     let mut total_slices: u32 = 0;
     let completed_units_count = units.iter().filter(|u| u.finished_at > 0).count() as u32;
 
-    let rich_milestones: Vec<VisualizerMilestone2> = raw_milestones.iter().map(|m| {
-        let m_status = if m.done {
-            "done"
-        } else if m.id == active_milestone_id {
-            "active"
-        } else {
-            "pending"
-        };
-
-        // Resolve milestone dir for discussion state and slice summaries
-        let milestone_dir_opt = resolve_dir_by_id(&milestones_dir, &m.id);
-        let milestone_dir = milestone_dir_opt.as_deref()
-            .map(|d| milestones_dir.join(d))
-            .unwrap_or_else(|| milestones_dir.join(&m.id));
-
-        let discussion_state = get_discussion_state(&milestone_dir, &m.id);
-
-        // Cost for this milestone from backward-compat list
-        let m_cost = cost_by_milestone.iter()
-            .find(|c| c.key == m.id)
-            .map(|c| c.cost)
-            .unwrap_or(0.0);
-
-        let rich_slices: Vec<VisualizerSlice2> = m.slices.iter().map(|s| {
-            total_slices += 1;
-
-            let s_status = if s.done {
+    let rich_milestones: Vec<VisualizerMilestone2> = raw_milestones
+        .iter()
+        .map(|m| {
+            let m_status = if m.done {
                 "done"
-            } else if s.id == active_slice_id {
+            } else if m.id == active_milestone_id {
                 "active"
             } else {
                 "pending"
             };
 
-            let qualified_sid = format!("{}/{}", m.id, s.id);
+            // Resolve milestone dir for discussion state and slice summaries
+            let milestone_dir_opt = resolve_dir_by_id(&milestones_dir, &m.id);
+            let milestone_dir = milestone_dir_opt
+                .as_deref()
+                .map(|d| milestones_dir.join(d))
+                .unwrap_or_else(|| milestones_dir.join(&m.id));
 
-            // Resolve slice dir for changelog/verification
-            let slice_dir_opt = resolve_dir_by_id(&milestone_dir, &s.id)
-                .map(|d| milestone_dir.join(d))
-                .or_else(|| {
-                    // Check nested slices/ subdir
-                    let nested = milestone_dir.join("slices");
-                    resolve_dir_by_id(&nested, &s.id).map(|d| nested.join(d))
-                });
-            let slice_dir = slice_dir_opt.unwrap_or_else(|| milestone_dir.join(&s.id));
+            let discussion_state = get_discussion_state(&milestone_dir, &m.id);
 
-            // Load changelog for completed slices
-            let changelog = if s.done {
-                load_slice_changelog(&slice_dir, &s.id)
-                    .map(|e| vec![e])
-                    .unwrap_or_default()
-            } else {
-                Vec::new()
-            };
+            // Cost for this milestone from backward-compat list
+            let m_cost = cost_by_milestone
+                .iter()
+                .find(|c| c.key == m.id)
+                .map(|c| c.cost)
+                .unwrap_or(0.0);
 
-            // Load verification summary from SUMMARY.md
-            let verification = if s.done {
-                let summary_file = resolve_file_by_id(&slice_dir, &s.id, "SUMMARY");
-                summary_file.and_then(|f| std::fs::read_to_string(&f).ok()).map(|content| {
-                    let (_fm, body) = parse_frontmatter(&content);
-                    // Extract verification section from body
-                    let mut vtext = String::new();
-                    let mut in_section = false;
-                    for line in body.lines() {
-                        let trimmed = line.trim();
-                        if trimmed.starts_with("## Verification") {
-                            in_section = true;
-                            continue;
-                        }
-                        if in_section {
-                            if trimmed.starts_with("## ") {
-                                break;
+            let rich_slices: Vec<VisualizerSlice2> = m
+                .slices
+                .iter()
+                .map(|s| {
+                    total_slices += 1;
+
+                    let s_status = if s.done {
+                        "done"
+                    } else if s.id == active_slice_id {
+                        "active"
+                    } else {
+                        "pending"
+                    };
+
+                    let qualified_sid = format!("{}/{}", m.id, s.id);
+
+                    // Resolve slice dir for changelog/verification
+                    let slice_dir_opt = resolve_dir_by_id(&milestone_dir, &s.id)
+                        .map(|d| milestone_dir.join(d))
+                        .or_else(|| {
+                            // Check nested slices/ subdir
+                            let nested = milestone_dir.join("slices");
+                            resolve_dir_by_id(&nested, &s.id).map(|d| nested.join(d))
+                        });
+                    let slice_dir = slice_dir_opt.unwrap_or_else(|| milestone_dir.join(&s.id));
+
+                    // Load changelog for completed slices
+                    let changelog = if s.done {
+                        load_slice_changelog(&slice_dir, &s.id)
+                            .map(|e| vec![e])
+                            .unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    };
+
+                    // Load verification summary from SUMMARY.md
+                    let verification = if s.done {
+                        let summary_file = resolve_file_by_id(&slice_dir, &s.id, "SUMMARY");
+                        summary_file
+                            .and_then(|f| std::fs::read_to_string(&f).ok())
+                            .map(|content| {
+                                let (_fm, body) = parse_frontmatter(&content);
+                                // Extract verification section from body
+                                let mut vtext = String::new();
+                                let mut in_section = false;
+                                for line in body.lines() {
+                                    let trimmed = line.trim();
+                                    if trimmed.starts_with("## Verification") {
+                                        in_section = true;
+                                        continue;
+                                    }
+                                    if in_section {
+                                        if trimmed.starts_with("## ") {
+                                            break;
+                                        }
+                                        vtext.push_str(line);
+                                        vtext.push('\n');
+                                    }
+                                }
+                                SliceVerification2 {
+                                    slice_id: s.id.clone(),
+                                    verification_text: vtext.trim().to_string(),
+                                }
+                            })
+                    } else {
+                        None
+                    };
+
+                    // Rich tasks
+                    let rich_tasks: Vec<VisualizerTask2> = s
+                        .tasks
+                        .iter()
+                        .map(|t| {
+                            let t_status = if t.done {
+                                "done"
+                            } else if t.id == active_task_id {
+                                "active"
+                            } else {
+                                "pending"
+                            };
+                            let task_qualified = format!("{}/{}/{}", m.id, s.id, t.id);
+                            let on_cp = cp_set.contains(&qualified_sid);
+                            let slack = slack_lookup.get(&qualified_sid).copied().unwrap_or(0);
+                            let _ = task_qualified;
+                            VisualizerTask2 {
+                                id: t.id.clone(),
+                                title: t.title.clone(),
+                                done: t.done,
+                                status: t_status.to_string(),
+                                estimate: t.estimate.clone(),
+                                on_critical_path: on_cp,
+                                slack,
                             }
-                            vtext.push_str(line);
-                            vtext.push('\n');
-                        }
-                    }
-                    SliceVerification2 {
-                        slice_id: s.id.clone(),
-                        verification_text: vtext.trim().to_string(),
+                        })
+                        .collect();
+
+                    VisualizerSlice2 {
+                        id: s.id.clone(),
+                        title: s.title.clone(),
+                        done: s.done,
+                        status: s_status.to_string(),
+                        risk: s.risk.clone(),
+                        dependencies: s.dependencies.clone(),
+                        tasks: rich_tasks,
+                        verification,
+                        changelog: changelog.clone(),
                     }
                 })
-            } else {
-                None
-            };
+                .collect();
 
-            // Rich tasks
-            let rich_tasks: Vec<VisualizerTask2> = s.tasks.iter().map(|t| {
-                let t_status = if t.done {
-                    "done"
-                } else if t.id == active_task_id {
-                    "active"
-                } else {
-                    "pending"
-                };
-                let task_qualified = format!("{}/{}/{}", m.id, s.id, t.id);
-                let on_cp = cp_set.contains(&qualified_sid);
-                let slack = slack_lookup.get(&qualified_sid).copied().unwrap_or(0);
-                let _ = task_qualified;
-                VisualizerTask2 {
-                    id: t.id.clone(),
-                    title: t.title.clone(),
-                    done: t.done,
-                    status: t_status.to_string(),
-                    estimate: t.estimate.clone(),
-                    on_critical_path: on_cp,
-                    slack,
+            // Collect changelog from all slices in this milestone
+            for s in &rich_slices {
+                for e in &s.changelog {
+                    all_changelog.push(e.clone());
                 }
-            }).collect();
-
-            VisualizerSlice2 {
-                id: s.id.clone(),
-                title: s.title.clone(),
-                done: s.done,
-                status: s_status.to_string(),
-                risk: s.risk.clone(),
-                dependencies: s.dependencies.clone(),
-                tasks: rich_tasks,
-                verification,
-                changelog: changelog.clone(),
             }
-        }).collect();
 
-        // Collect changelog from all slices in this milestone
-        for s in &rich_slices {
-            for e in &s.changelog {
-                all_changelog.push(e.clone());
+            VisualizerMilestone2 {
+                id: m.id.clone(),
+                title: m.title.clone(),
+                done: m.done,
+                status: m_status.to_string(),
+                dependencies: m.dependencies.clone(),
+                slices: rich_slices,
+                discussion_state,
+                cost: m_cost,
             }
-        }
-
-        VisualizerMilestone2 {
-            id: m.id.clone(),
-            title: m.title.clone(),
-            done: m.done,
-            status: m_status.to_string(),
-            dependencies: m.dependencies.clone(),
-            slices: rich_slices,
-            discussion_state,
-            cost: m_cost,
-        }
-    }).collect();
+        })
+        .collect();
 
     // Build backward-compatible tree from rich milestones
-    let tree: Vec<VisualizerNodeCompat> = rich_milestones.iter().map(|m| {
-        let slice_nodes: Vec<VisualizerNodeCompat> = m.slices.iter().map(|s| {
-            let task_nodes: Vec<VisualizerNodeCompat> = s.tasks.iter().map(|t| {
-                VisualizerNodeCompat {
-                    id: t.id.clone(),
-                    title: t.title.clone(),
-                    status: t.status.clone(),
-                    children: Vec::new(),
-                }
-            }).collect();
+    let tree: Vec<VisualizerNodeCompat> = rich_milestones
+        .iter()
+        .map(|m| {
+            let slice_nodes: Vec<VisualizerNodeCompat> = m
+                .slices
+                .iter()
+                .map(|s| {
+                    let task_nodes: Vec<VisualizerNodeCompat> = s
+                        .tasks
+                        .iter()
+                        .map(|t| VisualizerNodeCompat {
+                            id: t.id.clone(),
+                            title: t.title.clone(),
+                            status: t.status.clone(),
+                            children: Vec::new(),
+                        })
+                        .collect();
+                    VisualizerNodeCompat {
+                        id: s.id.clone(),
+                        title: s.title.clone(),
+                        status: s.status.clone(),
+                        children: task_nodes,
+                    }
+                })
+                .collect();
             VisualizerNodeCompat {
-                id: s.id.clone(),
-                title: s.title.clone(),
-                status: s.status.clone(),
-                children: task_nodes,
+                id: m.id.clone(),
+                title: m.title.clone(),
+                status: m.status.clone(),
+                children: slice_nodes,
             }
-        }).collect();
-        VisualizerNodeCompat {
-            id: m.id.clone(),
-            title: m.title.clone(),
-            status: m.status.clone(),
-            children: slice_nodes,
-        }
-    }).collect();
+        })
+        .collect();
 
     // --- Knowledge ---
     let knowledge_path = Path::new(&project_path).join(".gsd").join("KNOWLEDGE.md");
     let knowledge = if knowledge_path.exists() {
         let content = std::fs::read_to_string(&knowledge_path).unwrap_or_default();
         let entry_count = content.lines().filter(|l| l.starts_with("## ")).count() as u32;
-        KnowledgeInfo2 { exists: true, entry_count }
+        KnowledgeInfo2 {
+            exists: true,
+            entry_count,
+        }
     } else {
-        KnowledgeInfo2 { exists: false, entry_count: 0 }
+        KnowledgeInfo2 {
+            exists: false,
+            entry_count: 0,
+        }
     };
 
     // --- Captures ---
     let captures_path = Path::new(&project_path).join(".gsd").join("CAPTURES.md");
     let captures = if captures_path.exists() {
         let content = std::fs::read_to_string(&captures_path).unwrap_or_default();
-        let pending_count = content.lines()
+        let pending_count = content
+            .lines()
             .filter(|l| l.trim_start().starts_with("- [ ]"))
             .count() as u32;
-        CapturesInfo2 { exists: true, pending_count }
+        CapturesInfo2 {
+            exists: true,
+            pending_count,
+        }
     } else {
-        CapturesInfo2 { exists: false, pending_count: 0 }
+        CapturesInfo2 {
+            exists: false,
+            pending_count: 0,
+        }
     };
 
     // --- Health summary ---
@@ -3649,29 +3779,40 @@ pub async fn gsd2_get_visualizer_data(
     let agent_activity = get_agent_activity(&project_path, total_slices, completed_units_count);
 
     // --- Stats ---
-    let milestones_missing_summary = rich_milestones.iter().filter(|m| m.done).filter(|m| {
-        let mdir = resolve_dir_by_id(&milestones_dir, &m.id)
-            .map(|d| milestones_dir.join(d))
-            .unwrap_or_else(|| milestones_dir.join(&m.id));
-        resolve_file_by_id(&mdir, &m.id, "MILESTONE-SUMMARY").is_none()
-    }).count() as u32;
+    let milestones_missing_summary = rich_milestones
+        .iter()
+        .filter(|m| m.done)
+        .filter(|m| {
+            let mdir = resolve_dir_by_id(&milestones_dir, &m.id)
+                .map(|d| milestones_dir.join(d))
+                .unwrap_or_else(|| milestones_dir.join(&m.id));
+            resolve_file_by_id(&mdir, &m.id, "MILESTONE-SUMMARY").is_none()
+        })
+        .count() as u32;
 
-    let slices_missing_summary = rich_milestones.iter().flat_map(|m| {
-        let mdir = resolve_dir_by_id(&milestones_dir, &m.id)
-            .map(|d| milestones_dir.join(d))
-            .unwrap_or_else(|| milestones_dir.join(&m.id));
-        m.slices.iter().filter(|s| s.done).filter(move |s| {
-            let sdir_opt = resolve_dir_by_id(&mdir, &s.id)
-                .map(|d| mdir.join(d))
-                .or_else(|| {
-                    let nested = mdir.join("slices");
-                    resolve_dir_by_id(&nested, &s.id).map(|d| nested.join(d))
-                });
-            let sdir = sdir_opt.unwrap_or_else(|| mdir.join(&s.id));
-            resolve_file_by_id(&sdir, &s.id, "SUMMARY").is_none()
-        }).map(|_| ())
-        .collect::<Vec<_>>()
-    }).count() as u32;
+    let slices_missing_summary = rich_milestones
+        .iter()
+        .flat_map(|m| {
+            let mdir = resolve_dir_by_id(&milestones_dir, &m.id)
+                .map(|d| milestones_dir.join(d))
+                .unwrap_or_else(|| milestones_dir.join(&m.id));
+            m.slices
+                .iter()
+                .filter(|s| s.done)
+                .filter(move |s| {
+                    let sdir_opt = resolve_dir_by_id(&mdir, &s.id)
+                        .map(|d| mdir.join(d))
+                        .or_else(|| {
+                            let nested = mdir.join("slices");
+                            resolve_dir_by_id(&nested, &s.id).map(|d| nested.join(d))
+                        });
+                    let sdir = sdir_opt.unwrap_or_else(|| mdir.join(&s.id));
+                    resolve_file_by_id(&sdir, &s.id, "SUMMARY").is_none()
+                })
+                .map(|_| ())
+                .collect::<Vec<_>>()
+        })
+        .count() as u32;
 
     // Last 5 changelog entries sorted by completed_at desc
     let mut all_changelog_sorted = all_changelog;
@@ -3749,7 +3890,14 @@ pub async fn gsd2_doctor(
                 let raw = String::from_utf8_lossy(&o.stdout).to_string();
                 // Extract version number from "GSD v2.41.0 — Get Shit Done" style output
                 raw.split_whitespace()
-                    .find(|tok| tok.starts_with('v') && tok.chars().nth(1).map(|c| c.is_ascii_digit()).unwrap_or(false))
+                    .find(|tok| {
+                        tok.starts_with('v')
+                            && tok
+                                .chars()
+                                .nth(1)
+                                .map(|c| c.is_ascii_digit())
+                                .unwrap_or(false)
+                    })
                     .map(|v| v.trim_start_matches('v').to_string())
                     .unwrap_or_else(|| raw.trim().to_string())
             }
@@ -3783,15 +3931,28 @@ pub async fn gsd2_doctor(
         category: "state".to_string(),
         label: "STATE.md".to_string(),
         status: if state_file.exists() { "ok" } else { "warning" }.to_string(),
-        detail: if state_file.exists() { None } else { Some("STATE.md not found".to_string()) },
+        detail: if state_file.exists() {
+            None
+        } else {
+            Some("STATE.md not found".to_string())
+        },
     });
 
     let metrics_file = gsd_dir.join("metrics.json");
     checks.push(DoctorCheck {
         category: "state".to_string(),
         label: "metrics.json".to_string(),
-        status: if metrics_file.exists() { "ok" } else { "warning" }.to_string(),
-        detail: if metrics_file.exists() { None } else { Some("metrics.json not found — budget tracking unavailable".to_string()) },
+        status: if metrics_file.exists() {
+            "ok"
+        } else {
+            "warning"
+        }
+        .to_string(),
+        detail: if metrics_file.exists() {
+            None
+        } else {
+            Some("metrics.json not found — budget tracking unavailable".to_string())
+        },
     });
 
     // --- Milestones checks ---
@@ -3846,7 +4007,11 @@ pub async fn gsd2_doctor(
         category: "env".to_string(),
         label: "Environment file".to_string(),
         status: if env_file.exists() { "ok" } else { "warning" }.to_string(),
-        detail: if env_file.exists() { None } else { Some(".env file not found at project root".to_string()) },
+        detail: if env_file.exists() {
+            None
+        } else {
+            Some(".env file not found at project root".to_string())
+        },
     });
 
     // Tally
@@ -3934,8 +4099,8 @@ pub async fn gsd2_list_sessions(
             let date = &ts_part[..10]; // 2026-03-21
             let rest = &ts_part[10..]; // T22-53-21-898Z
             let time_part = rest
-                .replacen('-', ":", 1)  // T22:53-21-898Z
-                .replacen('-', ":", 1)  // T22:53:21-898Z
+                .replacen('-', ":", 1) // T22:53-21-898Z
+                .replacen('-', ":", 1) // T22:53:21-898Z
                 .replacen('-', ".", 1); // T22:53:21.898Z
             format!("{}{}", date, time_part)
         } else {
@@ -4248,9 +4413,7 @@ fn parse_plan_preview_from_value(
 
 /// List available GSD models by running `gsd --list-models [search]`.
 #[tauri::command]
-pub async fn gsd2_list_models(
-    search: Option<String>,
-) -> Result<Vec<GsdModelEntry>, String> {
+pub async fn gsd2_list_models(search: Option<String>) -> Result<Vec<GsdModelEntry>, String> {
     let mut cmd = std::process::Command::new("gsd");
     cmd.arg("--list-models");
     if let Some(ref s) = search {
@@ -4763,12 +4926,34 @@ pub async fn gsd2_get_forensics_report(
                     total_units = timeline.len() as u32;
                     for entry in timeline {
                         let cost = entry.get("cost").and_then(|c| c.as_f64()).unwrap_or(0.0);
-                        let started = entry.get("startedAt").and_then(|s| s.as_f64()).unwrap_or(0.0);
-                        let finished = entry.get("finishedAt").and_then(|s| s.as_f64()).unwrap_or(0.0);
-                        let duration = if finished > started { (finished - started) * 1000.0 } else { 0.0 };
-                        let model = entry.get("model").and_then(|m| m.as_str()).unwrap_or("unknown").to_string();
-                        let unit_type = entry.get("unitType").and_then(|u| u.as_str()).unwrap_or("task").to_string();
-                        let unit_id = entry.get("unitId").and_then(|u| u.as_str()).unwrap_or("").to_string();
+                        let started = entry
+                            .get("startedAt")
+                            .and_then(|s| s.as_f64())
+                            .unwrap_or(0.0);
+                        let finished = entry
+                            .get("finishedAt")
+                            .and_then(|s| s.as_f64())
+                            .unwrap_or(0.0);
+                        let duration = if finished > started {
+                            (finished - started) * 1000.0
+                        } else {
+                            0.0
+                        };
+                        let model = entry
+                            .get("model")
+                            .and_then(|m| m.as_str())
+                            .unwrap_or("unknown")
+                            .to_string();
+                        let unit_type = entry
+                            .get("unitType")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("task")
+                            .to_string();
+                        let unit_id = entry
+                            .get("unitId")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("")
+                            .to_string();
 
                         total_cost += cost;
                         total_duration += duration;
@@ -4800,7 +4985,11 @@ pub async fn gsd2_get_forensics_report(
     }
 
     // Sort recent units by finished_at descending, keep last 10
-    recent_units.sort_by(|a, b| b.finished_at.partial_cmp(&a.finished_at).unwrap_or(std::cmp::Ordering::Equal));
+    recent_units.sort_by(|a, b| {
+        b.finished_at
+            .partial_cmp(&a.finished_at)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     recent_units.truncate(10);
 
     // Check for crash lock
@@ -4811,12 +5000,34 @@ pub async fn gsd2_get_forensics_report(
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
                     Some(ForensicCrashLock {
                         pid: val.get("pid").and_then(|p| p.as_u64()).unwrap_or(0),
-                        started_at: val.get("startedAt").and_then(|s| s.as_str()).unwrap_or("").to_string(),
-                        unit_type: val.get("unitType").and_then(|u| u.as_str()).unwrap_or("").to_string(),
-                        unit_id: val.get("unitId").and_then(|u| u.as_str()).unwrap_or("").to_string(),
-                        unit_started_at: val.get("unitStartedAt").and_then(|u| u.as_str()).unwrap_or("").to_string(),
-                        completed_units: val.get("completedUnits").and_then(|c| c.as_u64()).unwrap_or(0) as u32,
-                        session_file: val.get("sessionFile").and_then(|s| s.as_str()).map(|s| s.to_string()),
+                        started_at: val
+                            .get("startedAt")
+                            .and_then(|s| s.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        unit_type: val
+                            .get("unitType")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        unit_id: val
+                            .get("unitId")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        unit_started_at: val
+                            .get("unitStartedAt")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        completed_units: val
+                            .get("completedUnits")
+                            .and_then(|c| c.as_u64())
+                            .unwrap_or(0) as u32,
+                        session_file: val
+                            .get("sessionFile")
+                            .and_then(|s| s.as_str())
+                            .map(|s| s.to_string()),
                     })
                 } else {
                     None
@@ -4833,9 +5044,11 @@ pub async fn gsd2_get_forensics_report(
     let runtime_dir = gsd_dir.join("runtime");
     let unit_trace_count = if runtime_dir.is_dir() {
         std::fs::read_dir(&runtime_dir)
-            .map(|rd| rd.flatten().filter(|e| {
-                e.path().extension().and_then(|ext| ext.to_str()) == Some("jsonl")
-            }).count() as u32)
+            .map(|rd| {
+                rd.flatten()
+                    .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("jsonl"))
+                    .count() as u32
+            })
             .unwrap_or(0)
     } else {
         0
@@ -4844,9 +5057,11 @@ pub async fn gsd2_get_forensics_report(
     // Count completed keys
     let completed_key_count = if runtime_dir.is_dir() {
         std::fs::read_dir(&runtime_dir)
-            .map(|rd| rd.flatten().filter(|e| {
-                e.file_name().to_string_lossy().starts_with("completed-")
-            }).count() as u32)
+            .map(|rd| {
+                rd.flatten()
+                    .filter(|e| e.file_name().to_string_lossy().starts_with("completed-"))
+                    .count() as u32
+            })
             .unwrap_or(0)
     } else {
         0
@@ -4956,13 +5171,29 @@ pub async fn gsd2_get_skill_health(
                     total_with_skills += 1;
                     let cost = entry.get("cost").and_then(|c| c.as_f64()).unwrap_or(0.0);
                     let tokens_sub = entry.get("tokens");
-                    let tokens = entry.get("totalTokens").and_then(|t| t.as_f64())
-                        .or_else(|| tokens_sub.and_then(|t| t.get("total")).and_then(|v| v.as_f64()))
+                    let tokens = entry
+                        .get("totalTokens")
+                        .and_then(|t| t.as_f64())
+                        .or_else(|| {
+                            tokens_sub
+                                .and_then(|t| t.get("total"))
+                                .and_then(|v| v.as_f64())
+                        })
                         .or_else(|| entry.get("cacheRead").and_then(|c| c.as_f64()))
-                        .or_else(|| tokens_sub.and_then(|t| t.get("cacheRead")).and_then(|v| v.as_f64()))
+                        .or_else(|| {
+                            tokens_sub
+                                .and_then(|t| t.get("cacheRead"))
+                                .and_then(|v| v.as_f64())
+                        })
                         .unwrap_or(0.0);
-                    let finished = entry.get("finishedAt").and_then(|f| f.as_f64()).unwrap_or(0.0);
-                    skill_map.entry(skill.to_string()).or_default().push((cost, tokens, finished));
+                    let finished = entry
+                        .get("finishedAt")
+                        .and_then(|f| f.as_f64())
+                        .unwrap_or(0.0);
+                    skill_map
+                        .entry(skill.to_string())
+                        .or_default()
+                        .push((cost, tokens, finished));
                 }
             }
         }
@@ -4989,7 +5220,8 @@ pub async fn gsd2_get_skill_health(
         let token_trend = if usages.len() >= 4 {
             let mid = usages.len() / 2;
             let first_half_avg = usages[..mid].iter().map(|(_, t, _)| t).sum::<f64>() / mid as f64;
-            let second_half_avg = usages[mid..].iter().map(|(_, t, _)| t).sum::<f64>() / (usages.len() - mid) as f64;
+            let second_half_avg =
+                usages[mid..].iter().map(|(_, t, _)| t).sum::<f64>() / (usages.len() - mid) as f64;
             if second_half_avg > first_half_avg * 1.2 {
                 "rising"
             } else if second_half_avg < first_half_avg * 0.8 {
@@ -5021,7 +5253,10 @@ pub async fn gsd2_get_skill_health(
             suggestions.push(SkillHealthSuggestion {
                 skill_name: name.clone(),
                 trigger: "stale_usage".to_string(),
-                message: format!("{} hasn't been used in {} days — consider removing or updating", name, stale_days),
+                message: format!(
+                    "{} hasn't been used in {} days — consider removing or updating",
+                    name, stale_days
+                ),
                 severity: "warning".to_string(),
             });
         }
@@ -5084,7 +5319,9 @@ pub async fn gsd2_get_knowledge(
 
     let knowledge_path = Path::new(&project_path).join(".gsd").join("KNOWLEDGE.md");
     if !knowledge_path.exists() {
-        return Ok(KnowledgeData { entries: Vec::new() });
+        return Ok(KnowledgeData {
+            entries: Vec::new(),
+        });
     }
 
     let content = std::fs::read_to_string(&knowledge_path)
@@ -5133,11 +5370,21 @@ pub async fn gsd2_get_knowledge(
 fn classify_knowledge_entry(title: &str, content: &str) -> String {
     let lower_title = title.to_lowercase();
     let lower_content = content.to_lowercase();
-    if lower_title.contains("rule") || lower_content.contains("must ") || lower_content.contains("never ") || lower_content.contains("always ") {
+    if lower_title.contains("rule")
+        || lower_content.contains("must ")
+        || lower_content.contains("never ")
+        || lower_content.contains("always ")
+    {
         "rule".to_string()
-    } else if lower_title.contains("pattern") || lower_title.contains("convention") || lower_content.contains("pattern") {
+    } else if lower_title.contains("pattern")
+        || lower_title.contains("convention")
+        || lower_content.contains("pattern")
+    {
         "pattern".to_string()
-    } else if lower_title.contains("lesson") || lower_title.contains("gotcha") || lower_title.contains("workaround") {
+    } else if lower_title.contains("lesson")
+        || lower_title.contains("gotcha")
+        || lower_title.contains("workaround")
+    {
         "lesson".to_string()
     } else {
         "freeform".to_string()
@@ -5187,7 +5434,10 @@ pub async fn gsd2_get_captures(
         get_project_path(&db_guard, &project_id)?
     };
 
-    let captures_dir = Path::new(&project_path).join(".gsd").join("runtime").join("captures");
+    let captures_dir = Path::new(&project_path)
+        .join(".gsd")
+        .join("runtime")
+        .join("captures");
     if !captures_dir.is_dir() {
         return Ok(CapturesData {
             entries: Vec::new(),
@@ -5207,14 +5457,42 @@ pub async fn gsd2_get_captures(
             if let Ok(content) = std::fs::read_to_string(&path) {
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
                     entries.push(CaptureEntry {
-                        id: val.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        text: val.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        timestamp: val.get("timestamp").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        status: val.get("status").and_then(|v| v.as_str()).unwrap_or("pending").to_string(),
-                        classification: val.get("classification").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                        resolution: val.get("resolution").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                        rationale: val.get("rationale").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                        resolved_at: val.get("resolvedAt").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                        id: val
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        text: val
+                            .get("text")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        timestamp: val
+                            .get("timestamp")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        status: val
+                            .get("status")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("pending")
+                            .to_string(),
+                        classification: val
+                            .get("classification")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string()),
+                        resolution: val
+                            .get("resolution")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string()),
+                        rationale: val
+                            .get("rationale")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string()),
+                        resolved_at: val
+                            .get("resolvedAt")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string()),
                         executed: val.get("executed").and_then(|v| v.as_bool()),
                     });
                 }
@@ -5226,9 +5504,12 @@ pub async fn gsd2_get_captures(
     entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
 
     let pending_count = entries.iter().filter(|e| e.status == "pending").count() as u32;
-    let actionable_count = entries.iter().filter(|e| {
-        e.status == "pending" || (e.classification.is_some() && e.executed != Some(true))
-    }).count() as u32;
+    let actionable_count = entries
+        .iter()
+        .filter(|e| {
+            e.status == "pending" || (e.classification.is_some() && e.executed != Some(true))
+        })
+        .count() as u32;
 
     Ok(CapturesData {
         entries,
@@ -5252,7 +5533,10 @@ pub async fn gsd2_resolve_capture(
         get_project_path(&db_guard, &project_id)?
     };
 
-    let captures_dir = Path::new(&project_path).join(".gsd").join("runtime").join("captures");
+    let captures_dir = Path::new(&project_path)
+        .join(".gsd")
+        .join("runtime")
+        .join("captures");
     if !captures_dir.is_dir() {
         return Ok(CaptureResolveResult {
             ok: false,
@@ -5299,10 +5583,16 @@ pub async fn gsd2_resolve_capture(
 
         if let Some(obj) = val.as_object_mut() {
             obj.insert("status".to_string(), serde_json::json!("resolved"));
-            obj.insert("classification".to_string(), serde_json::json!(classification));
+            obj.insert(
+                "classification".to_string(),
+                serde_json::json!(classification),
+            );
             obj.insert("resolution".to_string(), serde_json::json!(resolution));
             obj.insert("rationale".to_string(), serde_json::json!(rationale));
-            obj.insert("resolvedAt".to_string(), serde_json::json!(chrono::Utc::now().to_rfc3339()));
+            obj.insert(
+                "resolvedAt".to_string(),
+                serde_json::json!(chrono::Utc::now().to_rfc3339()),
+            );
         }
 
         std::fs::write(&path, serde_json::to_string_pretty(&val).unwrap())
@@ -5323,10 +5613,16 @@ pub async fn gsd2_resolve_capture(
 
     if let Some(obj) = val.as_object_mut() {
         obj.insert("status".to_string(), serde_json::json!("resolved"));
-        obj.insert("classification".to_string(), serde_json::json!(classification));
+        obj.insert(
+            "classification".to_string(),
+            serde_json::json!(classification),
+        );
         obj.insert("resolution".to_string(), serde_json::json!(resolution));
         obj.insert("rationale".to_string(), serde_json::json!(rationale));
-        obj.insert("resolvedAt".to_string(), serde_json::json!(chrono::Utc::now().to_rfc3339()));
+        obj.insert(
+            "resolvedAt".to_string(),
+            serde_json::json!(chrono::Utc::now().to_rfc3339()),
+        );
     }
 
     std::fs::write(&target_file, serde_json::to_string_pretty(&val).unwrap())
@@ -5399,7 +5695,10 @@ mod tests {
     fn build_headless_command_includes_model_and_env_assignments() {
         let mut env_values = HashMap::new();
         env_values.insert("OPENAI_API_KEY".to_string(), "sk-test".to_string());
-        env_values.insert("ANTHROPIC_API_KEY".to_string(), "anthropic'value".to_string());
+        env_values.insert(
+            "ANTHROPIC_API_KEY".to_string(),
+            "anthropic'value".to_string(),
+        );
 
         let command = build_headless_command(Some("gpt-4.1-mini"), &env_values);
         assert!(command.contains("OPENAI_API_KEY='sk-test'"));
@@ -5409,10 +5708,7 @@ mod tests {
 
     #[test]
     fn shell_single_quote_escapes_embedded_quotes() {
-        assert_eq!(
-            shell_single_quote("a'b'c"),
-            "'a'\\''b'\\''c'".to_string()
-        );
+        assert_eq!(shell_single_quote("a'b'c"), "'a'\\''b'\\''c'".to_string());
     }
 
     // ---- parse_roadmap_slices ----
@@ -5455,7 +5751,8 @@ mod tests {
 
     #[test]
     fn parse_roadmap_slices_stops_at_next_heading() {
-        let content = "## Slices\n- [ ] **S01: First**\n## Other\n- [ ] **S02: Should Not Parse**\n";
+        let content =
+            "## Slices\n- [ ] **S01: First**\n## Other\n- [ ] **S02: Should Not Parse**\n";
         let slices = parse_roadmap_slices(content);
         assert_eq!(slices.len(), 1);
         assert_eq!(slices[0].id, "S01");
@@ -5772,7 +6069,7 @@ mod tests {
         let dir = make_fixture_project(
             "ds_active_m",
             &[
-                ("M001", &[("S01", true, &[("T01", true)])]),   // complete
+                ("M001", &[("S01", true, &[("T01", true)])]), // complete
                 ("M002", &[("S01", false, &[("T01", false)])]), // not complete
             ],
         );
@@ -5803,10 +6100,7 @@ mod tests {
     fn derive_state_returns_first_nondone_task_as_active_task() {
         let dir = make_fixture_project(
             "ds_active_t",
-            &[(
-                "M001",
-                &[("S01", false, &[("T01", true), ("T02", false)])],
-            )],
+            &[("M001", &[("S01", false, &[("T01", true), ("T02", false)])])],
         );
         let state = derive_state_from_dir(dir.to_str().unwrap());
         assert_eq!(state.active_task_id, Some("T02".to_string()));
@@ -5934,10 +6228,7 @@ mod tests {
 
         // Bold line with blank lines between H1 and bold
         let body2 = "# T01: Some Task\n\n\n**Bold line after blanks**\n\nMore text.";
-        assert_eq!(
-            extract_one_liner_from_body(body2),
-            "Bold line after blanks"
-        );
+        assert_eq!(extract_one_liner_from_body(body2), "Bold line after blanks");
 
         // No bold line — non-bold content stops the scan
         let body3 = "# T01: Some Task\n\nRegular paragraph.\n\n**Not reached**";
@@ -6080,7 +6371,11 @@ fn esc_html(s: &str) -> String {
 }
 
 fn format_cost_html(cost: f64) -> String {
-    if cost < 0.001 { "<$0.001".to_string() } else { format!("${:.4}", cost) }
+    if cost < 0.001 {
+        "<$0.001".to_string()
+    } else {
+        format!("${:.4}", cost)
+    }
 }
 
 fn format_token_count_html(n: i64) -> String {
@@ -6094,7 +6389,9 @@ fn format_token_count_html(n: i64) -> String {
 }
 
 fn format_duration_html(ms: i64) -> String {
-    if ms <= 0 { return "0ms".to_string(); }
+    if ms <= 0 {
+        return "0ms".to_string();
+    }
     let secs = ms / 1_000;
     let mins = secs / 60;
     let hours = mins / 60;
@@ -6113,9 +6410,18 @@ fn format_date_short_html(iso: &str) -> String {
         let parts: Vec<&str> = iso[..10].split('-').collect();
         if parts.len() == 3 {
             let month = match parts[1] {
-                "01" => "Jan", "02" => "Feb", "03" => "Mar", "04" => "Apr",
-                "05" => "May", "06" => "Jun", "07" => "Jul", "08" => "Aug",
-                "09" => "Sep", "10" => "Oct", "11" => "Nov", "12" => "Dec",
+                "01" => "Jan",
+                "02" => "Feb",
+                "03" => "Mar",
+                "04" => "Apr",
+                "05" => "May",
+                "06" => "Jun",
+                "07" => "Jul",
+                "08" => "Aug",
+                "09" => "Sep",
+                "10" => "Oct",
+                "11" => "Nov",
+                "12" => "Dec",
                 _ => parts[1],
             };
             let day: u32 = parts[2].parse().unwrap_or(0);
@@ -6135,16 +6441,36 @@ fn format_date_long_html(iso: &str) -> String {
         if parts.len() == 3 && time_parts.len() == 3 {
             let year = parts[0];
             let month = match parts[1] {
-                "01" => "Jan", "02" => "Feb", "03" => "Mar", "04" => "Apr",
-                "05" => "May", "06" => "Jun", "07" => "Jul", "08" => "Aug",
-                "09" => "Sep", "10" => "Oct", "11" => "Nov", "12" => "Dec",
+                "01" => "Jan",
+                "02" => "Feb",
+                "03" => "Mar",
+                "04" => "Apr",
+                "05" => "May",
+                "06" => "Jun",
+                "07" => "Jul",
+                "08" => "Aug",
+                "09" => "Sep",
+                "10" => "Oct",
+                "11" => "Nov",
+                "12" => "Dec",
                 _ => parts[1],
             };
             let day: u32 = parts[2].parse().unwrap_or(0);
             let hour: u32 = time_parts[0].parse().unwrap_or(0);
             let min: u32 = time_parts[1].parse().unwrap_or(0);
-            let (h12, ampm) = if hour == 0 { (12, "AM") } else if hour < 12 { (hour, "AM") } else if hour == 12 { (12, "PM") } else { (hour - 12, "PM") };
-            return format!("{} {}, {} {}:{:02} {} UTC", month, day, year, h12, min, ampm);
+            let (h12, ampm) = if hour == 0 {
+                (12, "AM")
+            } else if hour < 12 {
+                (hour, "AM")
+            } else if hour == 12 {
+                (12, "PM")
+            } else {
+                (hour - 12, "PM")
+            };
+            return format!(
+                "{} {}, {} {}:{:02} {} UTC",
+                month, day, year, h12, min, ampm
+            );
         }
     }
     iso.to_string()
@@ -6168,7 +6494,10 @@ fn now_iso() -> String {
         .map(|d| d.as_secs())
         .unwrap_or(0);
     let (y, mo, d, h, min, sec) = epoch_to_date(secs);
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.000Z", y, mo, d, h, min, sec)
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.000Z",
+        y, mo, d, h, min, sec
+    )
 }
 
 fn epoch_to_date(secs: u64) -> (u32, u32, u32, u32, u32, u32) {
@@ -6187,19 +6516,30 @@ fn epoch_to_date(secs: u64) -> (u32, u32, u32, u32, u32, u32) {
     let h = rem / 3600;
     let min = (rem % 3600) / 60;
     let sec = rem % 60;
-    (year as u32, m as u32, d as u32, h as u32, min as u32, sec as u32)
+    (
+        year as u32,
+        m as u32,
+        d as u32,
+        h as u32,
+        min as u32,
+        sec as u32,
+    )
 }
 
 // ─── HTML section helpers ──────────────────────────────────────────────────────
 
 fn section_html(id: &str, title: &str, body: &str) -> String {
-    format!("\n<section id=\"{}\">\n  <h2>{}</h2>\n  {}\n</section>", id, title, body)
+    format!(
+        "\n<section id=\"{}\">\n  <h2>{}</h2>\n  {}\n</section>",
+        id, title, body
+    )
 }
 
 fn kvi_html(label: &str, value: &str) -> String {
     format!(
         "<div class=\"kv\"><span class=\"kv-val\">{}</span><span class=\"kv-lbl\">{}</span></div>",
-        esc_html(value), esc_html(label)
+        esc_html(value),
+        esc_html(label)
     )
 }
 
@@ -6208,7 +6548,12 @@ fn h_row_html(label: &str, value: &str, status: Option<&str>) -> String {
         Some(s) => format!(" class=\"h-{}\"", s),
         None => String::new(),
     };
-    format!("<tr{}><td>{}</td><td>{}</td></tr>", cls, esc_html(label), esc_html(value))
+    format!(
+        "<tr{}><td>{}</td><td>{}</td></tr>",
+        cls,
+        esc_html(label),
+        esc_html(value)
+    )
 }
 
 // ─── CSS constant ──────────────────────────────────────────────────────────────
@@ -6590,22 +6935,40 @@ footer{border-top:1px solid var(--border-1);padding:16px 32px}
 
 fn build_summary_section(data: &ReportData<'_>, _generated: &str) -> String {
     let total_slices: usize = data.milestones.iter().map(|m| m.slices.len()).sum();
-    let done_slices: usize = data.milestones.iter()
+    let done_slices: usize = data
+        .milestones
+        .iter()
         .flat_map(|m| m.slices.iter())
         .filter(|s| s.done)
         .count();
     let done_milestones = data.milestones.iter().filter(|m| m.done).count();
     let total_milestones = data.milestones.len();
-    let pct = if total_slices > 0 { (done_slices * 100) / total_slices } else { 0 };
+    let pct = if total_slices > 0 {
+        (done_slices * 100) / total_slices
+    } else {
+        0
+    };
 
     let spent = data.totals.total_cost;
     let mut kv = String::new();
-    kv.push_str(&kvi_html("Milestones", &format!("{}/{}", done_milestones, total_milestones)));
-    kv.push_str(&kvi_html("Slices", &format!("{}/{}", done_slices, total_slices)));
+    kv.push_str(&kvi_html(
+        "Milestones",
+        &format!("{}/{}", done_milestones, total_milestones),
+    ));
+    kv.push_str(&kvi_html(
+        "Slices",
+        &format!("{}/{}", done_slices, total_slices),
+    ));
     kv.push_str(&kvi_html("Phase", &data.phase));
     kv.push_str(&kvi_html("Cost", &format_cost_html(spent)));
-    kv.push_str(&kvi_html("Tokens", &format_token_count_html(data.totals.total_tokens)));
-    kv.push_str(&kvi_html("Duration", &format_duration_html(data.totals.duration_ms)));
+    kv.push_str(&kvi_html(
+        "Tokens",
+        &format_token_count_html(data.totals.total_tokens),
+    ));
+    kv.push_str(&kvi_html(
+        "Duration",
+        &format_duration_html(data.totals.duration_ms),
+    ));
     kv.push_str(&kvi_html("Tool calls", &data.totals.tool_calls.to_string()));
     kv.push_str(&kvi_html("Units", &data.totals.units.to_string()));
     if let Some(mid) = data.milestone_id {
@@ -6614,7 +6977,10 @@ fn build_summary_section(data: &ReportData<'_>, _generated: &str) -> String {
 
     let exec_summary = format!(
         "<p class=\"exec-summary\">{} is {}% complete across {} milestones. {} spent.</p>",
-        esc_html(data.project_name), pct, total_milestones, format_cost_html(spent)
+        esc_html(data.project_name),
+        pct,
+        total_milestones,
+        format_cost_html(spent)
     );
 
     let progress_bar = format!(
@@ -6622,7 +6988,10 @@ fn build_summary_section(data: &ReportData<'_>, _generated: &str) -> String {
         pct, pct
     );
 
-    let body = format!("{}<div class=\"kv-grid\">{}</div>{}", exec_summary, kv, progress_bar);
+    let body = format!(
+        "{}<div class=\"kv-grid\">{}</div>{}",
+        exec_summary, kv, progress_bar
+    );
     section_html("summary", "Summary", &body)
 }
 
@@ -6631,7 +7000,13 @@ fn build_blockers_section(data: &ReportData<'_>) -> String {
     let mut high_risk_html = String::new();
     for ms in data.milestones {
         for sl in &ms.slices {
-            if !sl.done && sl.risk.as_deref().map(|r| r.to_lowercase() == "high").unwrap_or(false) {
+            if !sl.done
+                && sl
+                    .risk
+                    .as_deref()
+                    .map(|r| r.to_lowercase() == "high")
+                    .unwrap_or(false)
+            {
                 high_risk_html.push_str(&format!(
                     "<div class=\"blocker-card\"><div class=\"blocker-id\">{}/{}</div><div class=\"blocker-text\">High risk — incomplete</div></div>",
                     esc_html(&ms.id), esc_html(&sl.id)
@@ -6641,7 +7016,11 @@ fn build_blockers_section(data: &ReportData<'_>) -> String {
     }
 
     if high_risk_html.is_empty() {
-        return section_html("blockers", "Blockers", "<p class=\"empty\">No blockers or high-risk items found.</p>");
+        return section_html(
+            "blockers",
+            "Blockers",
+            "<p class=\"empty\">No blockers or high-risk items found.</p>",
+        );
     }
 
     section_html("blockers", "Blockers", &high_risk_html)
@@ -6649,10 +7028,15 @@ fn build_blockers_section(data: &ReportData<'_>) -> String {
 
 fn build_progress_section(data: &ReportData<'_>) -> String {
     if data.milestones.is_empty() {
-        return section_html("progress", "Progress", "<p class=\"empty\">No milestones found.</p>");
+        return section_html(
+            "progress",
+            "Progress",
+            "<p class=\"empty\">No milestones found.</p>",
+        );
     }
 
-    let crit_set: std::collections::HashSet<&str> = data.critical_path.path.iter().map(|s| s.as_str()).collect();
+    let crit_set: std::collections::HashSet<&str> =
+        data.critical_path.path.iter().map(|s| s.as_str()).collect();
 
     let mut ms_html = String::new();
     for ms in data.milestones {
@@ -6669,10 +7053,23 @@ fn build_progress_section(data: &ReportData<'_>) -> String {
             }
         }
 
-        let crit_label = if on_crit { "<span class=\"label\">critical path</span>" } else { "" };
+        let crit_label = if on_crit {
+            "<span class=\"label\">critical path</span>"
+        } else {
+            ""
+        };
         let deps_html = if !ms.dependencies.is_empty() {
-            format!("<span class=\"muted\">needs {}</span>", ms.dependencies.iter().map(|d| esc_html(d)).collect::<Vec<_>>().join(", "))
-        } else { String::new() };
+            format!(
+                "<span class=\"muted\">needs {}</span>",
+                ms.dependencies
+                    .iter()
+                    .map(|d| esc_html(d))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        } else {
+            String::new()
+        };
 
         ms_html.push_str(&format!(
             "<details class=\"ms-block\" {}><summary class=\"ms-summary ms-{}\"><span class=\"dot dot-{}\"></span><span class=\"mono ms-id\">{}</span><span class=\"ms-title\">{}</span><span class=\"muted\">{}/{}</span>{}{}</summary><div class=\"ms-body\">{}</div></details>",
@@ -6708,10 +7105,23 @@ fn build_slice_row_html(sl: &Gsd2Slice, crit_set: &std::collections::HashSet<&st
     }
 
     let deps_html = if !sl.dependencies.is_empty() {
-        format!("<span class=\"muted sl-deps\">{}</span>", sl.dependencies.iter().map(|d| esc_html(d)).collect::<Vec<_>>().join(", "))
-    } else { String::new() };
+        format!(
+            "<span class=\"muted sl-deps\">{}</span>",
+            sl.dependencies
+                .iter()
+                .map(|d| esc_html(d))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    } else {
+        String::new()
+    };
 
-    let crit_label = if on_crit { "<span class=\"label\">critical</span>" } else { "" };
+    let crit_label = if on_crit {
+        "<span class=\"label\">critical</span>"
+    } else {
+        ""
+    };
 
     format!(
         "<details class=\"sl-block\"><summary class=\"sl-summary {}\"><span class=\"dot dot-{} dot-sm\"></span><span class=\"mono muted\">{}</span><span class=\"{}\">{}</span><span class=\"risk risk-{}\">{}</span>{}{}</summary><div class=\"sl-detail\">{}</div></details>",
@@ -6727,14 +7137,26 @@ fn build_slice_row_html(sl: &Gsd2Slice, crit_set: &std::collections::HashSet<&st
 fn build_dep_graph_section(data: &ReportData<'_>) -> String {
     let has_slices = data.milestones.iter().any(|m| !m.slices.is_empty());
     if !has_slices {
-        return section_html("depgraph", "Dependencies", "<p class=\"empty\">No slices to graph.</p>");
+        return section_html(
+            "depgraph",
+            "Dependencies",
+            "<p class=\"empty\">No slices to graph.</p>",
+        );
     }
-    let has_deps = data.milestones.iter().any(|m| m.slices.iter().any(|s| !s.dependencies.is_empty()));
+    let has_deps = data
+        .milestones
+        .iter()
+        .any(|m| m.slices.iter().any(|s| !s.dependencies.is_empty()));
     if !has_deps {
-        return section_html("depgraph", "Dependencies", "<p class=\"empty\">No dependencies defined.</p>");
+        return section_html(
+            "depgraph",
+            "Dependencies",
+            "<p class=\"empty\">No dependencies defined.</p>",
+        );
     }
 
-    let crit_set: std::collections::HashSet<&str> = data.critical_path.path.iter().map(|s| s.as_str()).collect();
+    let crit_set: std::collections::HashSet<&str> =
+        data.critical_path.path.iter().map(|s| s.as_str()).collect();
     let mut svgs = String::new();
     for ms in data.milestones {
         if !ms.slices.is_empty() {
@@ -6745,16 +7167,24 @@ fn build_dep_graph_section(data: &ReportData<'_>) -> String {
     section_html("depgraph", "Dependencies", &svgs)
 }
 
-fn build_milestone_dep_svg(ms: &Gsd2Milestone, crit_set: &std::collections::HashSet<&str>) -> String {
+fn build_milestone_dep_svg(
+    ms: &Gsd2Milestone,
+    crit_set: &std::collections::HashSet<&str>,
+) -> String {
     let slices = &ms.slices;
-    if slices.is_empty() { return String::new(); }
+    if slices.is_empty() {
+        return String::new();
+    }
 
     // Kahn's BFS layer assignment
     let mut layer_map: HashMap<String, i32> = HashMap::new();
     let mut in_deg: HashMap<String, i32> = HashMap::new();
-    let slice_ids: std::collections::HashSet<String> = slices.iter().map(|s| s.id.clone()).collect();
+    let slice_ids: std::collections::HashSet<String> =
+        slices.iter().map(|s| s.id.clone()).collect();
 
-    for s in slices { in_deg.insert(s.id.clone(), 0); }
+    for s in slices {
+        in_deg.insert(s.id.clone(), 0);
+    }
     for s in slices {
         for dep in &s.dependencies {
             if slice_ids.contains(dep) {
@@ -6767,12 +7197,18 @@ fn build_milestone_dep_svg(ms: &Gsd2Milestone, crit_set: &std::collections::Hash
     let mut queue: std::collections::VecDeque<String> = std::collections::VecDeque::new();
 
     for (id, d) in &in_deg {
-        if *d == 0 { queue.push_back(id.clone()); visited.insert(id.clone()); layer_map.insert(id.clone(), 0); }
+        if *d == 0 {
+            queue.push_back(id.clone());
+            visited.insert(id.clone());
+            layer_map.insert(id.clone(), 0);
+        }
     }
 
     while let Some(node) = queue.pop_front() {
         for s in slices {
-            if !s.dependencies.contains(&node) { continue; }
+            if !s.dependencies.contains(&node) {
+                continue;
+            }
             let new_deg = (in_deg.get(&s.id).copied().unwrap_or(1)) - 1;
             in_deg.insert(s.id.clone(), new_deg);
             let new_layer = (layer_map.get(&node).copied().unwrap_or(0)) + 1;
@@ -6784,7 +7220,9 @@ fn build_milestone_dep_svg(ms: &Gsd2Milestone, crit_set: &std::collections::Hash
             }
         }
     }
-    for s in slices { layer_map.entry(s.id.clone()).or_insert(0); }
+    for s in slices {
+        layer_map.entry(s.id.clone()).or_insert(0);
+    }
 
     let max_layer = layer_map.values().copied().max().unwrap_or(0);
     let mut by_layer: HashMap<i32, Vec<String>> = HashMap::new();
@@ -6792,8 +7230,15 @@ fn build_milestone_dep_svg(ms: &Gsd2Milestone, crit_set: &std::collections::Hash
         by_layer.entry(*layer).or_default().push(id.clone());
     }
 
-    let nw = 130_i64; let nh = 40_i64; let cgap = 56_i64; let rgap = 14_i64; let pad = 20_i64;
-    let max_rows = (0..=max_layer).map(|c| by_layer.get(&c).map(|v| v.len()).unwrap_or(0)).max().unwrap_or(0) as i64;
+    let nw = 130_i64;
+    let nh = 40_i64;
+    let cgap = 56_i64;
+    let rgap = 14_i64;
+    let pad = 20_i64;
+    let max_rows = (0..=max_layer)
+        .map(|c| by_layer.get(&c).map(|v| v.len()).unwrap_or(0))
+        .max()
+        .unwrap_or(0) as i64;
     let total_h = pad * 2 + max_rows * nh + (max_rows - 1).max(0) * rgap;
     let total_w = pad * 2 + (max_layer as i64 + 1) * nw + max_layer as i64 * cgap;
 
@@ -6803,7 +7248,13 @@ fn build_milestone_dep_svg(ms: &Gsd2Milestone, crit_set: &std::collections::Hash
         let col_h = ids.len() as i64 * nh + (ids.len() as i64 - 1).max(0) * rgap;
         let start_y = (total_h - col_h) / 2;
         for (i, id) in ids.iter().enumerate() {
-            pos.insert(id.clone(), (pad + col as i64 * (nw + cgap), start_y + i as i64 * (nh + rgap)));
+            pos.insert(
+                id.clone(),
+                (
+                    pad + col as i64 * (nw + cgap),
+                    start_y + i as i64 * (nh + rgap),
+                ),
+            );
         }
     }
 
@@ -6811,8 +7262,10 @@ fn build_milestone_dep_svg(ms: &Gsd2Milestone, crit_set: &std::collections::Hash
     for sl in slices {
         for dep in &sl.dependencies {
             if let (Some(&(fx, fy)), Some(&(tx, ty))) = (pos.get(dep), pos.get(&sl.id)) {
-                let x1 = fx + nw; let y1 = fy + nh / 2;
-                let x2 = tx;       let y2 = ty + nh / 2;
+                let x1 = fx + nw;
+                let y1 = fy + nh / 2;
+                let x2 = tx;
+                let y2 = ty + nh / 2;
                 let mx = (x1 + x2) / 2;
                 let crit = crit_set.contains(sl.id.as_str()) && crit_set.contains(dep.as_str());
                 edges.push_str(&format!(
@@ -6853,7 +7306,10 @@ fn build_metrics_section(data: &ReportData<'_>) -> String {
 
     let mut grid = String::new();
     grid.push_str(&kvi_html("Total cost", &format_cost_html(t.total_cost)));
-    grid.push_str(&kvi_html("Total tokens", &format_token_count_html(t.total_tokens)));
+    grid.push_str(&kvi_html(
+        "Total tokens",
+        &format_token_count_html(t.total_tokens),
+    ));
     grid.push_str(&kvi_html("Duration", &format_duration_html(t.duration_ms)));
     grid.push_str(&kvi_html("Units", &t.units.to_string()));
     grid.push_str(&kvi_html("Tool calls", &t.tool_calls.to_string()));
@@ -6864,11 +7320,27 @@ fn build_metrics_section(data: &ReportData<'_>) -> String {
     let mut phase_row = String::new();
     if !data.by_phase.is_empty() {
         phase_row.push_str("<div class=\"chart-row\">");
-        phase_row.push_str(&build_bar_chart_html("Cost by phase",
-            &data.by_phase.iter().map(|p| (p.phase.as_str(), p.cost, format_cost_html(p.cost))).collect::<Vec<_>>()
+        phase_row.push_str(&build_bar_chart_html(
+            "Cost by phase",
+            &data
+                .by_phase
+                .iter()
+                .map(|p| (p.phase.as_str(), p.cost, format_cost_html(p.cost)))
+                .collect::<Vec<_>>(),
         ));
-        phase_row.push_str(&build_bar_chart_html("Tokens by phase",
-            &data.by_phase.iter().map(|p| (p.phase.as_str(), p.tokens as f64, format_token_count_html(p.tokens))).collect::<Vec<_>>()
+        phase_row.push_str(&build_bar_chart_html(
+            "Tokens by phase",
+            &data
+                .by_phase
+                .iter()
+                .map(|p| {
+                    (
+                        p.phase.as_str(),
+                        p.tokens as f64,
+                        format_token_count_html(p.tokens),
+                    )
+                })
+                .collect::<Vec<_>>(),
         ));
         phase_row.push_str("</div>");
     }
@@ -6877,13 +7349,23 @@ fn build_metrics_section(data: &ReportData<'_>) -> String {
     if !data.by_slice.is_empty() || !data.by_model.is_empty() {
         slice_model_row.push_str("<div class=\"chart-row\">");
         if !data.by_slice.is_empty() {
-            slice_model_row.push_str(&build_bar_chart_html("Cost by slice",
-                &data.by_slice.iter().map(|s| (s.slice_id.as_str(), s.cost, format_cost_html(s.cost))).collect::<Vec<_>>()
+            slice_model_row.push_str(&build_bar_chart_html(
+                "Cost by slice",
+                &data
+                    .by_slice
+                    .iter()
+                    .map(|s| (s.slice_id.as_str(), s.cost, format_cost_html(s.cost)))
+                    .collect::<Vec<_>>(),
             ));
         }
         if !data.by_model.is_empty() {
-            slice_model_row.push_str(&build_bar_chart_html("Cost by model",
-                &data.by_model.iter().map(|m| (m.model.as_str(), m.cost, format_cost_html(m.cost))).collect::<Vec<_>>()
+            slice_model_row.push_str(&build_bar_chart_html(
+                "Cost by model",
+                &data
+                    .by_model
+                    .iter()
+                    .map(|m| (m.model.as_str(), m.cost, format_cost_html(m.cost)))
+                    .collect::<Vec<_>>(),
             ));
         }
         slice_model_row.push_str("</div>");
@@ -6893,7 +7375,7 @@ fn build_metrics_section(data: &ReportData<'_>) -> String {
     let budget_burndown = build_budget_burndown_html(data);
 
     let body = format!(
-        "<div class=\"kv-grid\">{}</div>{}{}{}{}{}", 
+        "<div class=\"kv-grid\">{}</div>{}{}{}{}{}",
         grid, budget_burndown, token_breakdown, cost_over_time, phase_row, slice_model_row
     );
     let body = format!("{}{}", body, gantt);
@@ -6903,32 +7385,55 @@ fn build_metrics_section(data: &ReportData<'_>) -> String {
 fn build_cost_over_time_chart_html(units: &[UnitRecord]) -> String {
     let mut sorted: Vec<&UnitRecord> = units.iter().filter(|u| u.started_at > 0).collect();
     sorted.sort_by_key(|u| u.started_at);
-    if sorted.len() < 2 { return String::new(); }
+    if sorted.len() < 2 {
+        return String::new();
+    }
 
     let mut cumulative: Vec<f64> = Vec::new();
     let mut running = 0.0_f64;
-    for u in &sorted { running += u.cost; cumulative.push(running); }
+    for u in &sorted {
+        running += u.cost;
+        cumulative.push(running);
+    }
 
-    let pad_l = 50_f64; let pad_r = 30_f64; let pad_t = 20_f64; let pad_b = 30_f64;
-    let w = 600_f64; let h = 200_f64;
+    let pad_l = 50_f64;
+    let pad_r = 30_f64;
+    let pad_t = 20_f64;
+    let pad_b = 30_f64;
+    let w = 600_f64;
+    let h = 200_f64;
     let plot_w = w - pad_l - pad_r;
     let plot_h = h - pad_t - pad_b;
     let max_cost = cumulative.last().copied().unwrap_or(1.0).max(0.001);
     let n = cumulative.len() as f64;
 
-    let points: Vec<(f64, f64)> = cumulative.iter().enumerate().map(|(i, &c)| {
-        let x = pad_l + (i as f64 / (n - 1.0)) * plot_w;
-        let y = pad_t + plot_h - (c / max_cost) * plot_h;
-        (x, y)
-    }).collect();
+    let points: Vec<(f64, f64)> = cumulative
+        .iter()
+        .enumerate()
+        .map(|(i, &c)| {
+            let x = pad_l + (i as f64 / (n - 1.0)) * plot_w;
+            let y = pad_t + plot_h - (c / max_cost) * plot_h;
+            (x, y)
+        })
+        .collect();
 
-    let line_path = points.iter().enumerate().map(|(i, &(x, y))| {
-        format!("{}{:.1},{:.1}", if i == 0 { "M" } else { "L" }, x, y)
-    }).collect::<Vec<_>>().join(" ");
+    let line_path = points
+        .iter()
+        .enumerate()
+        .map(|(i, &(x, y))| format!("{}{:.1},{:.1}", if i == 0 { "M" } else { "L" }, x, y))
+        .collect::<Vec<_>>()
+        .join(" ");
 
     let last = points.last().unwrap();
     let first = points.first().unwrap();
-    let area_path = format!("{} L{:.1},{:.1} L{:.1},{:.1} Z", line_path, last.0, pad_t + plot_h, first.0, pad_t + plot_h);
+    let area_path = format!(
+        "{} L{:.1},{:.1} L{:.1},{:.1} Z",
+        line_path,
+        last.0,
+        pad_t + plot_h,
+        first.0,
+        pad_t + plot_h
+    );
 
     let mut grid_lines = String::new();
     for i in 0..=4 {
@@ -6936,11 +7441,16 @@ fn build_cost_over_time_chart_html(units: &[UnitRecord]) -> String {
         let val = format_cost_html(max_cost * (1.0 - i as f64 / 4.0));
         grid_lines.push_str(&format!(
             "<line x1=\"{:.1}\" y1=\"{:.1}\" x2=\"{:.1}\" y2=\"{:.1}\" class=\"cost-grid\"/>",
-            pad_l, y, w - pad_r, y
+            pad_l,
+            y,
+            w - pad_r,
+            y
         ));
         grid_lines.push_str(&format!(
             "<text x=\"{:.1}\" y=\"{:.1}\" class=\"cost-axis\" text-anchor=\"end\">{}</text>",
-            pad_l - 4.0, y + 3.0, esc_html(&val)
+            pad_l - 4.0,
+            y + 3.0,
+            esc_html(&val)
         ));
     }
 
@@ -6953,19 +7463,39 @@ fn build_cost_over_time_chart_html(units: &[UnitRecord]) -> String {
 }
 
 fn build_budget_burndown_html(data: &ReportData<'_>) -> String {
-    let ceiling = match data.health.budget_ceiling { Some(c) => c, None => return String::new() };
+    let ceiling = match data.health.budget_ceiling {
+        Some(c) => c,
+        None => return String::new(),
+    };
     let spent = data.totals.total_cost;
     let total_slices: usize = data.milestones.iter().map(|m| m.slices.len()).sum();
-    let done_slices: usize = data.milestones.iter().flat_map(|m| m.slices.iter()).filter(|s| s.done).count();
+    let done_slices: usize = data
+        .milestones
+        .iter()
+        .flat_map(|m| m.slices.iter())
+        .filter(|s| s.done)
+        .count();
     let remaining = total_slices.saturating_sub(done_slices);
-    let avg_cost_per_slice = if done_slices > 0 { spent / done_slices as f64 } else { 0.0 };
-    let projected = if avg_cost_per_slice > 0.0 { avg_cost_per_slice * remaining as f64 + spent } else { spent };
+    let avg_cost_per_slice = if done_slices > 0 {
+        spent / done_slices as f64
+    } else {
+        0.0
+    };
+    let projected = if avg_cost_per_slice > 0.0 {
+        avg_cost_per_slice * remaining as f64 + spent
+    } else {
+        spent
+    };
     let max_val = ceiling.max(projected).max(spent);
 
     let spent_pct = (spent / max_val * 100.0).min(100.0);
     let projected_rem = (projected - spent).max(0.0);
     let proj_pct_raw = projected_rem / max_val * 100.0;
-    let overshoot = if projected > ceiling { ((projected - ceiling) / max_val * 100.0).max(0.0) } else { 0.0 };
+    let overshoot = if projected > ceiling {
+        ((projected - ceiling) / max_val * 100.0).max(0.0)
+    } else {
+        0.0
+    };
     let proj_pct = (proj_pct_raw - overshoot).max(0.0);
 
     let mut legend = format!(
@@ -6987,8 +7517,22 @@ fn build_budget_burndown_html(data: &ReportData<'_>) -> String {
         ));
     }
 
-    let proj_bar = if proj_pct > 0.0 { format!("<div class=\"burndown-projected\" style=\"width:{:.1}%\"></div>", proj_pct) } else { String::new() };
-    let over_bar = if overshoot > 0.0 { format!("<div class=\"burndown-overshoot\" style=\"width:{:.1}%\"></div>", overshoot) } else { String::new() };
+    let proj_bar = if proj_pct > 0.0 {
+        format!(
+            "<div class=\"burndown-projected\" style=\"width:{:.1}%\"></div>",
+            proj_pct
+        )
+    } else {
+        String::new()
+    };
+    let over_bar = if overshoot > 0.0 {
+        format!(
+            "<div class=\"burndown-overshoot\" style=\"width:{:.1}%\"></div>",
+            overshoot
+        )
+    } else {
+        String::new()
+    };
 
     format!(
         "<div class=\"burndown-wrap\"><h3>Budget burndown</h3><div class=\"burndown-bar\"><div class=\"burndown-spent\" style=\"width:{:.1}%\"></div>{}{}</div><div class=\"burndown-legend\">{}</div></div>",
@@ -7000,24 +7544,44 @@ fn build_slice_gantt_html(data: &ReportData<'_>) -> String {
     let mut slice_timings: HashMap<String, (i64, i64)> = HashMap::new();
     for u in data.units {
         let parts: Vec<&str> = u.id.splitn(3, '/').collect();
-        let slice_key = if parts.len() >= 2 { format!("{}/{}", parts[0], parts[1]) } else { u.id.clone() };
-        if u.started_at <= 0 { continue; }
+        let slice_key = if parts.len() >= 2 {
+            format!("{}/{}", parts[0], parts[1])
+        } else {
+            u.id.clone()
+        };
+        if u.started_at <= 0 {
+            continue;
+        }
         let end = if u.finished_at > 0 { u.finished_at } else { 0 };
-        if end == 0 { continue; }
-        let entry = slice_timings.entry(slice_key).or_insert((u.started_at, end));
+        if end == 0 {
+            continue;
+        }
+        let entry = slice_timings
+            .entry(slice_key)
+            .or_insert((u.started_at, end));
         entry.0 = entry.0.min(u.started_at);
         entry.1 = entry.1.max(end);
     }
-    if slice_timings.len() < 2 { return String::new(); }
+    if slice_timings.len() < 2 {
+        return String::new();
+    }
 
-    let mut slice_entries: Vec<(String, i64, i64)> = slice_timings.into_iter().map(|(k, (mn, mx))| (k, mn, mx)).collect();
+    let mut slice_entries: Vec<(String, i64, i64)> = slice_timings
+        .into_iter()
+        .map(|(k, (mn, mx))| (k, mn, mx))
+        .collect();
     slice_entries.sort_by_key(|e| e.1);
 
     let global_min = slice_entries.iter().map(|e| e.1).min().unwrap_or(0);
     let global_max = slice_entries.iter().map(|e| e.2).max().unwrap_or(1);
     let range = (global_max - global_min).max(1) as f64;
 
-    let bar_h = 18_f64; let row_h = 30_f64; let pad_l = 140_f64; let pad_r = 20_f64; let pad_t = 30_f64; let pad_b = 30_f64;
+    let bar_h = 18_f64;
+    let row_h = 30_f64;
+    let pad_l = 140_f64;
+    let pad_r = 20_f64;
+    let pad_t = 30_f64;
+    let pad_b = 30_f64;
     let plot_w = 700_f64 - pad_l - pad_r;
     let svg_h = slice_entries.len() as f64 * row_h + pad_t + pad_b;
 
@@ -7052,7 +7616,9 @@ fn build_slice_gantt_html(data: &ReportData<'_>) -> String {
         let date_str = format_date_short_html(&ms_to_iso(t));
         axis_labels.push_str(&format!(
             "<text x=\"{:.1}\" y=\"{:.1}\" class=\"gantt-axis\" text-anchor=\"middle\">{}</text>",
-            x, svg_h - 8.0, esc_html(&date_str)
+            x,
+            svg_h - 8.0,
+            esc_html(&date_str)
         ));
     }
 
@@ -7069,27 +7635,38 @@ fn ms_to_iso(ms: i64) -> String {
 }
 
 fn build_token_breakdown_html(total: i64) -> String {
-    if total == 0 { return String::new(); }
+    if total == 0 {
+        return String::new();
+    }
     // We only have the total from ProjectTotals; show a simplified view
     let segs = [
-        ("Input",       (total as f64 * 0.6) as i64, "seg-1"),
-        ("Output",      (total as f64 * 0.2) as i64, "seg-2"),
-        ("Cache read",  (total as f64 * 0.15) as i64, "seg-3"),
+        ("Input", (total as f64 * 0.6) as i64, "seg-1"),
+        ("Output", (total as f64 * 0.2) as i64, "seg-2"),
+        ("Cache read", (total as f64 * 0.15) as i64, "seg-3"),
         ("Cache write", (total as f64 * 0.05) as i64, "seg-4"),
     ];
 
     let mut bars = String::new();
     let mut legend = String::new();
     for (label, val, cls) in &segs {
-        if *val == 0 { continue; }
+        if *val == 0 {
+            continue;
+        }
         let pct = (*val as f64 / total as f64) * 100.0;
         bars.push_str(&format!(
             "<div class=\"tseg {}\" style=\"width:{:.2}%\" title=\"{}: {} ({:.1}%)\"></div>",
-            cls, pct, label, format_token_count_html(*val), pct
+            cls,
+            pct,
+            label,
+            format_token_count_html(*val),
+            pct
         ));
         legend.push_str(&format!(
             "<span class=\"leg-item\"><span class=\"leg-dot {}\"></span>{}: {} ({:.1}%)</span>",
-            cls, label, format_token_count_html(*val), pct
+            cls,
+            label,
+            format_token_count_html(*val),
+            pct
         ));
     }
 
@@ -7100,8 +7677,14 @@ fn build_token_breakdown_html(total: i64) -> String {
 }
 
 fn build_bar_chart_html(title: &str, entries: &[(&str, f64, String)]) -> String {
-    if entries.is_empty() { return String::new(); }
-    let max_val = entries.iter().map(|e| e.1).fold(0.0_f64, f64::max).max(0.001);
+    if entries.is_empty() {
+        return String::new();
+    }
+    let max_val = entries
+        .iter()
+        .map(|e| e.1)
+        .fold(0.0_f64, f64::max)
+        .max(0.001);
     let mut rows = String::new();
     for (i, (label, value, display)) in entries.iter().enumerate() {
         let pct = (value / max_val) * 100.0;
@@ -7111,12 +7694,20 @@ fn build_bar_chart_html(title: &str, entries: &[(&str, f64, String)]) -> String 
             esc_html(&trunc_str(label, 22)), ci, pct, esc_html(display)
         ));
     }
-    format!("<div class=\"chart-block\"><h3>{}</h3>{}</div>", esc_html(title), rows)
+    format!(
+        "<div class=\"chart-block\"><h3>{}</h3>{}</div>",
+        esc_html(title),
+        rows
+    )
 }
 
 fn build_timeline_section(data: &ReportData<'_>) -> String {
     if data.units.is_empty() {
-        return section_html("timeline", "Timeline", "<p class=\"empty\">No units executed yet.</p>");
+        return section_html(
+            "timeline",
+            "Timeline",
+            "<p class=\"empty\">No units executed yet.</p>",
+        );
     }
 
     let mut sorted: Vec<&UnitRecord> = data.units.iter().collect();
@@ -7125,11 +7716,20 @@ fn build_timeline_section(data: &ReportData<'_>) -> String {
 
     let mut rows = String::new();
     for (i, u) in sorted.iter().enumerate() {
-        let dur = if u.finished_at > 0 { format_duration_html(u.finished_at - u.started_at) } else { "running".to_string() };
+        let dur = if u.finished_at > 0 {
+            format_duration_html(u.finished_at - u.started_at)
+        } else {
+            "running".to_string()
+        };
         let intensity = (u.cost / max_cost).min(1.0);
         let heat_style = if intensity > 0.15 {
-            format!(" style=\"background:rgba(239,68,68,{:.3})\"", intensity * 0.15)
-        } else { String::new() };
+            format!(
+                " style=\"background:rgba(239,68,68,{:.3})\"",
+                intensity * 0.15
+            )
+        } else {
+            String::new()
+        };
         rows.push_str(&format!(
             "<tr{}><td class=\"muted\">{}</td><td class=\"mono\">{}</td><td class=\"mono muted\">{}</td><td>{}</td><td class=\"muted\">{}</td><td>{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td></tr>",
             heat_style, i + 1,
@@ -7154,19 +7754,46 @@ fn build_health_section(data: &ReportData<'_>) -> String {
     let h = data.health;
     let mut rows = String::new();
     rows.push_str(&h_row_html("Phase", data.phase.as_str(), None));
-    rows.push_str(&h_row_html("Budget spent", &format_cost_html(h.budget_spent), None));
+    rows.push_str(&h_row_html(
+        "Budget spent",
+        &format_cost_html(h.budget_spent),
+        None,
+    ));
     if let Some(ceiling) = h.budget_ceiling {
         let pct = (h.budget_spent / ceiling) * 100.0;
-        let status = if pct > 90.0 { Some("warn") } else if pct > 75.0 { Some("caution") } else { Some("ok") };
+        let status = if pct > 90.0 {
+            Some("warn")
+        } else if pct > 75.0 {
+            Some("caution")
+        } else {
+            Some("ok")
+        };
         rows.push_str(&h_row_html(
             "Budget ceiling",
-            &format!("{} ({} spent, {:.0}% used)", format_cost_html(ceiling), format_cost_html(h.budget_spent), pct),
+            &format!(
+                "{} ({} spent, {:.0}% used)",
+                format_cost_html(ceiling),
+                format_cost_html(h.budget_spent),
+                pct
+            ),
             status,
         ));
     }
-    rows.push_str(&h_row_html("Milestones", &format!("{}/{}", h.milestones_done, h.milestones_total), None));
-    rows.push_str(&h_row_html("Slices", &format!("{}/{}", h.slices_done, h.slices_total), None));
-    rows.push_str(&h_row_html("Tasks", &format!("{}/{}", h.tasks_done, h.tasks_total), None));
+    rows.push_str(&h_row_html(
+        "Milestones",
+        &format!("{}/{}", h.milestones_done, h.milestones_total),
+        None,
+    ));
+    rows.push_str(&h_row_html(
+        "Slices",
+        &format!("{}/{}", h.slices_done, h.slices_total),
+        None,
+    ));
+    rows.push_str(&h_row_html(
+        "Tasks",
+        &format!("{}/{}", h.tasks_done, h.tasks_total),
+        None,
+    ));
     if let Some(ref mid) = h.active_milestone_id {
         rows.push_str(&h_row_html("Active milestone", mid, None));
     }
@@ -7177,24 +7804,38 @@ fn build_health_section(data: &ReportData<'_>) -> String {
         rows.push_str(&h_row_html("Blocker", blocker, Some("warn")));
     }
 
-    let body = format!("<table class=\"tbl tbl-kv\"><tbody>{}</tbody></table>", rows);
+    let body = format!(
+        "<table class=\"tbl tbl-kv\"><tbody>{}</tbody></table>",
+        rows
+    );
     section_html("health", "Health", &body)
 }
 
 fn build_changelog_section(data: &ReportData<'_>) -> String {
     if data.changelog_entries.is_empty() {
-        return section_html("changelog", "Changelog", "<p class=\"empty\">No completed slices yet.</p>");
+        return section_html(
+            "changelog",
+            "Changelog",
+            "<p class=\"empty\">No completed slices yet.</p>",
+        );
     }
 
     let mut entries_html = String::new();
     for e in &data.changelog_entries {
         let date_html = if let Some(ref ts) = e.completed_at {
-            format!("<span class=\"muted cl-date\">{}</span>", esc_html(&format_date_short_html(ts)))
-        } else { String::new() };
+            format!(
+                "<span class=\"muted cl-date\">{}</span>",
+                esc_html(&format_date_short_html(ts))
+            )
+        } else {
+            String::new()
+        };
 
         let liner_html = if !e.one_liner.is_empty() {
             format!("<p class=\"cl-liner\">{}</p>", esc_html(&e.one_liner))
-        } else { String::new() };
+        } else {
+            String::new()
+        };
 
         let mut files_html = String::new();
         if !e.files_modified.is_empty() {
@@ -7203,9 +7844,14 @@ fn build_changelog_section(data: &ReportData<'_>) -> String {
                 e.files_modified.len(), if e.files_modified.len() != 1 { "s" } else { "" }
             ));
             for f in &e.files_modified {
-                files_html.push_str(&format!("<li><code>{}</code>{}</li>",
+                files_html.push_str(&format!(
+                    "<li><code>{}</code>{}</li>",
                     esc_html(&f.path),
-                    if !f.description.is_empty() { format!(" — {}", esc_html(&f.description)) } else { String::new() }
+                    if !f.description.is_empty() {
+                        format!(" — {}", esc_html(&f.description))
+                    } else {
+                        String::new()
+                    }
                 ));
             }
             files_html.push_str("</ul></details>");
@@ -7217,48 +7863,87 @@ fn build_changelog_section(data: &ReportData<'_>) -> String {
         ));
     }
 
-    let title = format!("Changelog <span class=\"count\">{}</span>", data.changelog_entries.len());
+    let title = format!(
+        "Changelog <span class=\"count\">{}</span>",
+        data.changelog_entries.len()
+    );
     section_html("changelog", &title, &entries_html)
 }
 
 fn build_knowledge_section(data: &ReportData<'_>) -> String {
     if data.knowledge_entries.is_empty() {
-        return section_html("knowledge", "Knowledge", "<p class=\"empty\">No KNOWLEDGE.md found or no entries.</p>");
+        return section_html(
+            "knowledge",
+            "Knowledge",
+            "<p class=\"empty\">No KNOWLEDGE.md found or no entries.</p>",
+        );
     }
 
     let total = data.knowledge_entries.len();
     let mut body = String::new();
 
-    let rules: Vec<&KnowledgeEntry> = data.knowledge_entries.iter().filter(|e| e.entry_type == "rule").collect();
-    let patterns: Vec<&KnowledgeEntry> = data.knowledge_entries.iter().filter(|e| e.entry_type == "pattern").collect();
-    let lessons: Vec<&KnowledgeEntry> = data.knowledge_entries.iter().filter(|e| e.entry_type == "lesson").collect();
-    let other: Vec<&KnowledgeEntry> = data.knowledge_entries.iter().filter(|e| !["rule","pattern","lesson"].contains(&e.entry_type.as_str())).collect();
+    let rules: Vec<&KnowledgeEntry> = data
+        .knowledge_entries
+        .iter()
+        .filter(|e| e.entry_type == "rule")
+        .collect();
+    let patterns: Vec<&KnowledgeEntry> = data
+        .knowledge_entries
+        .iter()
+        .filter(|e| e.entry_type == "pattern")
+        .collect();
+    let lessons: Vec<&KnowledgeEntry> = data
+        .knowledge_entries
+        .iter()
+        .filter(|e| e.entry_type == "lesson")
+        .collect();
+    let other: Vec<&KnowledgeEntry> = data
+        .knowledge_entries
+        .iter()
+        .filter(|e| !["rule", "pattern", "lesson"].contains(&e.entry_type.as_str()))
+        .collect();
 
     if !rules.is_empty() {
         body.push_str(&format!("<h3>Rules <span class=\"count\">{}</span></h3><table class=\"tbl\"><thead><tr><th>ID</th><th>Rule</th></tr></thead><tbody>", rules.len()));
         for r in &rules {
-            body.push_str(&format!("<tr><td class=\"mono\">{}</td><td>{}</td></tr>", esc_html(&r.id), esc_html(&r.content)));
+            body.push_str(&format!(
+                "<tr><td class=\"mono\">{}</td><td>{}</td></tr>",
+                esc_html(&r.id),
+                esc_html(&r.content)
+            ));
         }
         body.push_str("</tbody></table>");
     }
     if !patterns.is_empty() {
         body.push_str(&format!("<h3>Patterns <span class=\"count\">{}</span></h3><table class=\"tbl\"><thead><tr><th>ID</th><th>Pattern</th></tr></thead><tbody>", patterns.len()));
         for p in &patterns {
-            body.push_str(&format!("<tr><td class=\"mono\">{}</td><td>{}</td></tr>", esc_html(&p.id), esc_html(&p.content)));
+            body.push_str(&format!(
+                "<tr><td class=\"mono\">{}</td><td>{}</td></tr>",
+                esc_html(&p.id),
+                esc_html(&p.content)
+            ));
         }
         body.push_str("</tbody></table>");
     }
     if !lessons.is_empty() {
         body.push_str(&format!("<h3>Lessons <span class=\"count\">{}</span></h3><table class=\"tbl\"><thead><tr><th>ID</th><th>Lesson</th></tr></thead><tbody>", lessons.len()));
         for l in &lessons {
-            body.push_str(&format!("<tr><td class=\"mono\">{}</td><td>{}</td></tr>", esc_html(&l.id), esc_html(&l.content)));
+            body.push_str(&format!(
+                "<tr><td class=\"mono\">{}</td><td>{}</td></tr>",
+                esc_html(&l.id),
+                esc_html(&l.content)
+            ));
         }
         body.push_str("</tbody></table>");
     }
     if !other.is_empty() {
         body.push_str(&format!("<h3>Notes <span class=\"count\">{}</span></h3><table class=\"tbl\"><thead><tr><th>ID</th><th>Content</th></tr></thead><tbody>", other.len()));
         for e in &other {
-            body.push_str(&format!("<tr><td class=\"mono\">{}</td><td>{}</td></tr>", esc_html(&e.id), esc_html(&e.content)));
+            body.push_str(&format!(
+                "<tr><td class=\"mono\">{}</td><td>{}</td></tr>",
+                esc_html(&e.id),
+                esc_html(&e.content)
+            ));
         }
         body.push_str("</tbody></table>");
     }
@@ -7269,13 +7954,26 @@ fn build_knowledge_section(data: &ReportData<'_>) -> String {
 
 fn build_captures_section(data: &ReportData<'_>) -> String {
     if data.capture_entries.is_empty() {
-        return section_html("captures", "Captures", "<p class=\"empty\">No captures recorded.</p>");
+        return section_html(
+            "captures",
+            "Captures",
+            "<p class=\"empty\">No captures recorded.</p>",
+        );
     }
 
-    let pending_count = data.capture_entries.iter().filter(|e| e.status == "pending").count();
+    let pending_count = data
+        .capture_entries
+        .iter()
+        .filter(|e| e.status == "pending")
+        .count();
     let badge = if pending_count > 0 {
-        format!("<span class=\"count count-warn\">{} pending</span>", pending_count)
-    } else { "<span class=\"count\">all triaged</span>".to_string() };
+        format!(
+            "<span class=\"count count-warn\">{} pending</span>",
+            pending_count
+        )
+    } else {
+        "<span class=\"count\">all triaged</span>".to_string()
+    };
 
     let mut rows = String::new();
     for e in data.capture_entries {
@@ -7317,7 +8015,12 @@ fn build_stats_section(data: &ReportData<'_>) -> String {
     } else {
         let mut html = format!("<h3>Incomplete slices <span class=\"count\">{}</span></h3><table class=\"tbl\"><thead><tr><th>Milestone</th><th>Slice</th><th>Title</th></tr></thead><tbody>", missing.len());
         for (mid, sid, title) in missing.iter().take(20) {
-            html.push_str(&format!("<tr><td class=\"mono\">{}</td><td class=\"mono\">{}</td><td>{}</td></tr>", esc_html(mid), esc_html(sid), esc_html(title)));
+            html.push_str(&format!(
+                "<tr><td class=\"mono\">{}</td><td class=\"mono\">{}</td><td>{}</td></tr>",
+                esc_html(mid),
+                esc_html(sid),
+                esc_html(title)
+            ));
         }
         html.push_str("</tbody></table>");
         html
@@ -7327,18 +8030,26 @@ fn build_stats_section(data: &ReportData<'_>) -> String {
 
 fn build_discussion_section(data: &ReportData<'_>) -> String {
     if data.discussion_states.is_empty() {
-        return section_html("discussion", "Planning", "<p class=\"empty\">No milestones.</p>");
+        return section_html(
+            "discussion",
+            "Planning",
+            "<p class=\"empty\">No milestones.</p>",
+        );
     }
 
     let mut rows = String::new();
     for ms in data.milestones {
-        let state = data.discussion_states.iter()
+        let state = data
+            .discussion_states
+            .iter()
             .find(|(id, _)| id == &ms.id)
             .map(|(_, s)| s.as_str())
             .unwrap_or("undiscussed");
         rows.push_str(&format!(
             "<tr><td class=\"mono\">{}</td><td>{}</td><td class=\"mono\">{}</td></tr>",
-            esc_html(&ms.id), esc_html(&ms.title), esc_html(state)
+            esc_html(&ms.id),
+            esc_html(&ms.title),
+            esc_html(state)
         ));
     }
 
@@ -7369,14 +8080,22 @@ fn generate_html_report_string(data: &ReportData<'_>) -> String {
         build_discussion_section(data),
     ];
 
-    let milestone_tag = data.milestone_id.map(|mid| format!(
-        " <span class=\"sep\">/</span> <span class=\"mono accent\">{}</span>",
-        esc_html(mid)
-    )).unwrap_or_default();
+    let milestone_tag = data
+        .milestone_id
+        .map(|mid| {
+            format!(
+                " <span class=\"sep\">/</span> <span class=\"mono accent\">{}</span>",
+                esc_html(mid)
+            )
+        })
+        .unwrap_or_default();
 
     let back_link = "<a class=\"back-link\" href=\"index.html\">All Reports</a>";
 
-    let title_suffix = data.milestone_id.map(|mid| format!(" \u{2014} {}", esc_html(mid))).unwrap_or_default();
+    let title_suffix = data
+        .milestone_id
+        .map(|mid| format!(" \u{2014} {}", esc_html(mid)))
+        .unwrap_or_default();
 
     format!(
         r##"<!DOCTYPE html>
@@ -7454,30 +8173,92 @@ fn generate_html_report_string(data: &ReportData<'_>) -> String {
 fn load_reports_index(reports_dir: &Path) -> Option<ReportsIndex> {
     let p = reports_dir.join("reports.json");
     let content = std::fs::read_to_string(&p).ok()?;
-    serde_json::from_str::<serde_json::Value>(&content).ok().map(|v| ReportsIndex {
-        version: v.get("version").and_then(|x| x.as_u64()).unwrap_or(1) as u32,
-        project_name: v.get("projectName").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        project_path: v.get("projectPath").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        gsd_version: v.get("gsdVersion").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-        entries: v.get("entries").and_then(|x| x.as_array()).map(|arr| {
-            arr.iter().map(|e| ReportEntry {
-                filename: e.get("filename").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                generated_at: e.get("generatedAt").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                milestone_id: e.get("milestoneId").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                milestone_title: e.get("milestoneTitle").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                label: e.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                kind: e.get("kind").and_then(|x| x.as_str()).unwrap_or("manual").to_string(),
-                total_cost: e.get("totalCost").and_then(|x| x.as_f64()).unwrap_or(0.0),
-                total_tokens: e.get("totalTokens").and_then(|x| x.as_i64()).unwrap_or(0),
-                total_duration: e.get("totalDuration").and_then(|x| x.as_i64()).unwrap_or(0),
-                done_slices: e.get("doneSlices").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
-                total_slices: e.get("totalSlices").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
-                done_milestones: e.get("doneMilestones").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
-                total_milestones: e.get("totalMilestones").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
-                phase: e.get("phase").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-            }).collect()
-        }).unwrap_or_default(),
-    })
+    serde_json::from_str::<serde_json::Value>(&content)
+        .ok()
+        .map(|v| ReportsIndex {
+            version: v.get("version").and_then(|x| x.as_u64()).unwrap_or(1) as u32,
+            project_name: v
+                .get("projectName")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            project_path: v
+                .get("projectPath")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            gsd_version: v
+                .get("gsdVersion")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string(),
+            entries: v
+                .get("entries")
+                .and_then(|x| x.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .map(|e| ReportEntry {
+                            filename: e
+                                .get("filename")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            generated_at: e
+                                .get("generatedAt")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            milestone_id: e
+                                .get("milestoneId")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            milestone_title: e
+                                .get("milestoneTitle")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            label: e
+                                .get("label")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            kind: e
+                                .get("kind")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("manual")
+                                .to_string(),
+                            total_cost: e.get("totalCost").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                            total_tokens: e
+                                .get("totalTokens")
+                                .and_then(|x| x.as_i64())
+                                .unwrap_or(0),
+                            total_duration: e
+                                .get("totalDuration")
+                                .and_then(|x| x.as_i64())
+                                .unwrap_or(0),
+                            done_slices: e.get("doneSlices").and_then(|x| x.as_u64()).unwrap_or(0)
+                                as u32,
+                            total_slices: e.get("totalSlices").and_then(|x| x.as_u64()).unwrap_or(0)
+                                as u32,
+                            done_milestones: e
+                                .get("doneMilestones")
+                                .and_then(|x| x.as_u64())
+                                .unwrap_or(0) as u32,
+                            total_milestones: e
+                                .get("totalMilestones")
+                                .and_then(|x| x.as_u64())
+                                .unwrap_or(0) as u32,
+                            phase: e
+                                .get("phase")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+        })
 }
 
 fn save_reports_index(reports_dir: &Path, index: &ReportsIndex) -> Result<(), String> {
@@ -7505,8 +8286,7 @@ fn save_reports_index(reports_dir: &Path, index: &ReportsIndex) -> Result<(), St
         })).collect::<Vec<_>>(),
     });
     let content = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
-    std::fs::write(reports_dir.join("reports.json"), content + "\n")
-        .map_err(|e| e.to_string())
+    std::fs::write(reports_dir.join("reports.json"), content + "\n").map_err(|e| e.to_string())
 }
 
 fn regenerate_html_index(reports_dir: &Path, index: &ReportsIndex) {
@@ -7520,14 +8300,23 @@ fn build_index_html(index: &ReportsIndex) -> String {
     sorted.sort_by(|a, b| a.generated_at.cmp(&b.generated_at));
 
     let latest = sorted.last();
-    let overall_pct = latest.map(|e| {
-        if e.total_slices > 0 { e.done_slices * 100 / e.total_slices } else { 0 }
-    }).unwrap_or(0);
+    let overall_pct = latest
+        .map(|e| {
+            if e.total_slices > 0 {
+                e.done_slices * 100 / e.total_slices
+            } else {
+                0
+            }
+        })
+        .unwrap_or(0);
 
     // Build TOC groups by milestone
     let mut milestone_groups: Vec<(String, Vec<&ReportEntry>)> = Vec::new();
     for e in &sorted {
-        if let Some(grp) = milestone_groups.iter_mut().find(|(k, _)| k == &e.milestone_id) {
+        if let Some(grp) = milestone_groups
+            .iter_mut()
+            .find(|(k, _)| k == &e.milestone_id)
+        {
             grp.1.push(e);
         } else {
             milestone_groups.push((e.milestone_id.clone(), vec![e]));
@@ -7536,14 +8325,24 @@ fn build_index_html(index: &ReportsIndex) -> String {
 
     let mut toc_html = String::new();
     for (mid, group) in &milestone_groups {
-        let label = if mid == "final" { "Final".to_string() } else { esc_html(mid) };
-        let links = group.iter().map(|e| {
-            format!(
-                "<li><a href=\"{}\">{}</a> <span class=\"toc-kind toc-{}\">{}</span></li>",
-                esc_html(&e.filename), esc_html(&format_date_short_html(&e.generated_at)),
-                esc_html(&e.kind), esc_html(&e.kind)
-            )
-        }).collect::<Vec<_>>().join("");
+        let label = if mid == "final" {
+            "Final".to_string()
+        } else {
+            esc_html(mid)
+        };
+        let links = group
+            .iter()
+            .map(|e| {
+                format!(
+                    "<li><a href=\"{}\">{}</a> <span class=\"toc-kind toc-{}\">{}</span></li>",
+                    esc_html(&e.filename),
+                    esc_html(&format_date_short_html(&e.generated_at)),
+                    esc_html(&e.kind),
+                    esc_html(&e.kind)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("");
         toc_html.push_str(&format!(
             "<div class=\"toc-group\"><div class=\"toc-group-label\">{}</div><ul>{}</ul></div>",
             label, links
@@ -7553,7 +8352,11 @@ fn build_index_html(index: &ReportsIndex) -> String {
     // Progression cards
     let mut cards_html = String::new();
     for (i, e) in sorted.iter().enumerate() {
-        let pct = if e.total_slices > 0 { (e.done_slices * 100) / e.total_slices } else { 0 };
+        let pct = if e.total_slices > 0 {
+            (e.done_slices * 100) / e.total_slices
+        } else {
+            0
+        };
         let is_latest = i == sorted.len() - 1;
 
         let mut delta_html = String::new();
@@ -7563,13 +8366,31 @@ fn build_index_html(index: &ReportsIndex) -> String {
             let d_slices = e.done_slices as i32 - prev.done_slices as i32;
             let d_milestones = e.done_milestones as i32 - prev.done_milestones as i32;
             let mut parts: Vec<String> = Vec::new();
-            if d_cost > 0.0001 { parts.push(format!("+{}", format_cost_html(d_cost))); }
-            if d_slices > 0 { parts.push(format!("+{} slice{}", d_slices, if d_slices != 1 { "s" } else { "" })); }
-            if d_milestones > 0 { parts.push(format!("+{} milestone{}", d_milestones, if d_milestones != 1 { "s" } else { "" })); }
+            if d_cost > 0.0001 {
+                parts.push(format!("+{}", format_cost_html(d_cost)));
+            }
+            if d_slices > 0 {
+                parts.push(format!(
+                    "+{} slice{}",
+                    d_slices,
+                    if d_slices != 1 { "s" } else { "" }
+                ));
+            }
+            if d_milestones > 0 {
+                parts.push(format!(
+                    "+{} milestone{}",
+                    d_milestones,
+                    if d_milestones != 1 { "s" } else { "" }
+                ));
+            }
             if !parts.is_empty() {
                 delta_html = format!(
                     "<div class=\"card-delta\">{}</div>",
-                    parts.iter().map(|p| format!("<span>{}</span>", esc_html(p))).collect::<Vec<_>>().join("")
+                    parts
+                        .iter()
+                        .map(|p| format!("<span>{}</span>", esc_html(p)))
+                        .collect::<Vec<_>>()
+                        .join("")
                 );
             }
         }
@@ -7593,7 +8414,9 @@ fn build_index_html(index: &ReportsIndex) -> String {
     // Cost sparkline
     let sparkline_html = if sorted.len() > 1 {
         build_cost_sparkline_html(&sorted)
-    } else { String::new() };
+    } else {
+        String::new()
+    };
 
     // Summary of latest state
     let summary_html = if let Some(e) = latest {
@@ -7603,11 +8426,18 @@ fn build_index_html(index: &ReportsIndex) -> String {
             e.done_slices, e.total_slices, e.done_milestones, e.total_milestones,
             index.entries.len(), overall_pct, overall_pct
         )
-    } else { "<p class=\"empty\">No reports generated yet.</p>".to_string() };
+    } else {
+        "<p class=\"empty\">No reports generated yet.</p>".to_string()
+    };
 
     let sparkline_section = if !sparkline_html.is_empty() {
-        format!("<div class=\"sparkline-wrap\"><h3>Cost Progression</h3>{}</div>", sparkline_html)
-    } else { String::new() };
+        format!(
+            "<div class=\"sparkline-wrap\"><h3>Cost Progression</h3>{}</div>",
+            sparkline_html
+        )
+    } else {
+        String::new()
+    };
 
     let cards_section = if !cards_html.is_empty() {
         format!("<div class=\"cards-grid\">{}</div>", cards_html)
@@ -7674,7 +8504,11 @@ fn build_index_html(index: &ReportsIndex) -> String {
         gsd_version = esc_html(&index.gsd_version),
         project_path = esc_html(&index.project_path),
         generated_short = esc_html(&format_date_short_html(&generated)),
-        toc = if toc_html.is_empty() { "<p class=\"empty\">No reports yet.</p>".to_string() } else { toc_html },
+        toc = if toc_html.is_empty() {
+            "<p class=\"empty\">No reports yet.</p>".to_string()
+        } else {
+            toc_html
+        },
         summary = summary_html,
         sparkline = sparkline_section,
         count = index.entries.len(),
@@ -7685,15 +8519,26 @@ fn build_index_html(index: &ReportsIndex) -> String {
 fn build_cost_sparkline_html(entries: &[ReportEntry]) -> String {
     let costs: Vec<f64> = entries.iter().map(|e| e.total_cost).collect();
     let max_cost = costs.iter().cloned().fold(0.001_f64, f64::max);
-    let w = 600_f64; let h = 60_f64; let pad = 12_f64;
+    let w = 600_f64;
+    let h = 60_f64;
+    let pad = 12_f64;
     let n = entries.len();
-    let x_step = if n > 1 { (w - pad * 2.0) / (n - 1) as f64 } else { w - pad * 2.0 };
+    let x_step = if n > 1 {
+        (w - pad * 2.0) / (n - 1) as f64
+    } else {
+        w - pad * 2.0
+    };
 
-    let points = costs.iter().enumerate().map(|(i, &c)| {
-        let x = pad + i as f64 * x_step;
-        let y = pad + (1.0 - c / max_cost) * (h - pad * 2.0);
-        format!("{:.1},{:.1}", x, y)
-    }).collect::<Vec<_>>().join(" ");
+    let points = costs
+        .iter()
+        .enumerate()
+        .map(|(i, &c)| {
+            let x = pad + i as f64 * x_step;
+            let y = pad + (1.0 - c / max_cost) * (h - pad * 2.0);
+            format!("{:.1},{:.1}", x, y)
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
 
     let dots = costs.iter().enumerate().map(|(i, &c)| {
         let x = pad + i as f64 * x_step;
@@ -7707,12 +8552,25 @@ fn build_cost_sparkline_html(entries: &[ReportEntry]) -> String {
     let start_label = format_cost_html(costs[0]);
     let end_label = format_cost_html(*costs.last().unwrap_or(&0.0));
 
-    let ticks = entries.iter().enumerate().map(|(i, e)| {
-        let x = (pad + i as f64 * x_step) / w * 100.0;
-        let mid = if e.milestone_id == "final" { "final" } else { &e.milestone_id };
-        format!("<span class=\"spark-tick\" style=\"left:{:.1}%\" title=\"{}\">{}</span>",
-            x, esc_html(&e.generated_at), esc_html(mid))
-    }).collect::<Vec<_>>().join("");
+    let ticks = entries
+        .iter()
+        .enumerate()
+        .map(|(i, e)| {
+            let x = (pad + i as f64 * x_step) / w * 100.0;
+            let mid = if e.milestone_id == "final" {
+                "final"
+            } else {
+                &e.milestone_id
+            };
+            format!(
+                "<span class=\"spark-tick\" style=\"left:{:.1}%\" title=\"{}\">{}</span>",
+                x,
+                esc_html(&e.generated_at),
+                esc_html(mid)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
 
     format!(
         "<div class=\"sparkline\"><svg viewBox=\"0 0 {} {}\" width=\"{}\" height=\"{}\" class=\"spark-svg\"><polyline points=\"{}\" class=\"spark-line\" fill=\"none\"/>{}<text x=\"{}\" y=\"{}\" class=\"spark-lbl\">{}</text><text x=\"{}\" y=\"{}\" text-anchor=\"end\" class=\"spark-lbl\">{}</text></svg><div class=\"spark-axis\">{}</div></div>",
@@ -7767,10 +8625,19 @@ pub async fn gsd2_generate_html_report(
                     if !current_title.is_empty() {
                         let lower_t = current_title.to_lowercase();
                         let lower_c = current_content.to_lowercase();
-                        let et = if lower_t.contains("rule") || lower_c.contains("must ") || lower_c.contains("never ") || lower_c.contains("always ") { "rule" }
-                            else if lower_t.contains("pattern") || lower_t.contains("convention") { "pattern" }
-                            else if lower_t.contains("lesson") || lower_t.contains("gotcha") { "lesson" }
-                            else { "freeform" };
+                        let et = if lower_t.contains("rule")
+                            || lower_c.contains("must ")
+                            || lower_c.contains("never ")
+                            || lower_c.contains("always ")
+                        {
+                            "rule"
+                        } else if lower_t.contains("pattern") || lower_t.contains("convention") {
+                            "pattern"
+                        } else if lower_t.contains("lesson") || lower_t.contains("gotcha") {
+                            "lesson"
+                        } else {
+                            "freeform"
+                        };
                         entries.push(KnowledgeEntry {
                             id: format!("K{:03}", entry_idx),
                             title: current_title.clone(),
@@ -7789,10 +8656,19 @@ pub async fn gsd2_generate_html_report(
             if !current_title.is_empty() {
                 let lower_t = current_title.to_lowercase();
                 let lower_c = current_content.to_lowercase();
-                let et = if lower_t.contains("rule") || lower_c.contains("must ") || lower_c.contains("never ") || lower_c.contains("always ") { "rule" }
-                    else if lower_t.contains("pattern") || lower_t.contains("convention") { "pattern" }
-                    else if lower_t.contains("lesson") || lower_t.contains("gotcha") { "lesson" }
-                    else { "freeform" };
+                let et = if lower_t.contains("rule")
+                    || lower_c.contains("must ")
+                    || lower_c.contains("never ")
+                    || lower_c.contains("always ")
+                {
+                    "rule"
+                } else if lower_t.contains("pattern") || lower_t.contains("convention") {
+                    "pattern"
+                } else if lower_t.contains("lesson") || lower_t.contains("gotcha") {
+                    "lesson"
+                } else {
+                    "freeform"
+                };
                 entries.push(KnowledgeEntry {
                     id: format!("K{:03}", entry_idx),
                     title: current_title,
@@ -7814,18 +8690,48 @@ pub async fn gsd2_generate_html_report(
             if let Ok(rd) = std::fs::read_dir(&captures_dir) {
                 for file in rd.flatten() {
                     let p = file.path();
-                    if p.extension().and_then(|e| e.to_str()) != Some("json") { continue; }
+                    if p.extension().and_then(|e| e.to_str()) != Some("json") {
+                        continue;
+                    }
                     if let Ok(c) = std::fs::read_to_string(&p) {
                         if let Ok(val) = serde_json::from_str::<serde_json::Value>(&c) {
                             entries.push(CaptureEntry {
-                                id: val.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                                text: val.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                                timestamp: val.get("timestamp").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                                status: val.get("status").and_then(|v| v.as_str()).unwrap_or("pending").to_string(),
-                                classification: val.get("classification").and_then(|v| v.as_str()).map(String::from),
-                                resolution: val.get("resolution").and_then(|v| v.as_str()).map(String::from),
-                                rationale: val.get("rationale").and_then(|v| v.as_str()).map(String::from),
-                                resolved_at: val.get("resolvedAt").and_then(|v| v.as_str()).map(String::from),
+                                id: val
+                                    .get("id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string(),
+                                text: val
+                                    .get("text")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string(),
+                                timestamp: val
+                                    .get("timestamp")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string(),
+                                status: val
+                                    .get("status")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("pending")
+                                    .to_string(),
+                                classification: val
+                                    .get("classification")
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from),
+                                resolution: val
+                                    .get("resolution")
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from),
+                                rationale: val
+                                    .get("rationale")
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from),
+                                resolved_at: val
+                                    .get("resolvedAt")
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from),
                                 executed: val.get("executed").and_then(|v| v.as_bool()),
                             });
                         }
@@ -7864,8 +8770,16 @@ pub async fn gsd2_generate_html_report(
         for sl in &ms.slices {
             if !sl.done {
                 let qualified_id = format!("{}/{}", ms.id, sl.id);
-                let qualified_deps: Vec<String> = sl.dependencies.iter()
-                    .map(|d| if d.contains('/') { d.clone() } else { format!("{}/{}", ms.id, d) })
+                let qualified_deps: Vec<String> = sl
+                    .dependencies
+                    .iter()
+                    .map(|d| {
+                        if d.contains('/') {
+                            d.clone()
+                        } else {
+                            format!("{}/{}", ms.id, d)
+                        }
+                    })
                     .collect();
                 cp_nodes.push((qualified_id, qualified_deps));
             }
@@ -7874,7 +8788,10 @@ pub async fn gsd2_generate_html_report(
     let critical_path = compute_critical_path(&cp_nodes);
 
     // Determine phase
-    let phase = health.phase.clone().unwrap_or_else(|| "execution".to_string());
+    let phase = health
+        .phase
+        .clone()
+        .unwrap_or_else(|| "execution".to_string());
 
     // Get project name from the path (last component) or use project_id
     let project_name = std::path::Path::new(&project_path)
@@ -7886,9 +8803,14 @@ pub async fn gsd2_generate_html_report(
     // GSD version — read from preferences or default
     let gsd_version = {
         let prefs_path = gsd_dir.join("preferences.json");
-        std::fs::read_to_string(&prefs_path).ok()
+        std::fs::read_to_string(&prefs_path)
+            .ok()
             .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
-            .and_then(|v| v.get("gsdVersion").and_then(|x| x.as_str()).map(String::from))
+            .and_then(|v| {
+                v.get("gsdVersion")
+                    .and_then(|x| x.as_str())
+                    .map(String::from)
+            })
             .unwrap_or_else(|| "2.0".to_string())
     };
 
@@ -7932,19 +8854,24 @@ pub async fn gsd2_generate_html_report(
     let filename = format!("{}-{}.html", safe_prefix, timestamp);
     let file_path = reports_dir.join(&filename);
 
-    std::fs::write(&file_path, &html)
-        .map_err(|e| format!("Failed to write report: {}", e))?;
+    std::fs::write(&file_path, &html).map_err(|e| format!("Failed to write report: {}", e))?;
 
     // Update registry
     let report_kind = kind.as_deref().unwrap_or("manual").to_string();
-    let milestone_title = milestone_id.as_deref().map(|mid| {
-        milestones.iter().find(|m| m.id == mid)
-            .map(|m| m.title.clone())
-            .unwrap_or_else(|| mid.to_string())
-    }).unwrap_or_else(|| "Full Project".to_string());
+    let milestone_title = milestone_id
+        .as_deref()
+        .map(|mid| {
+            milestones
+                .iter()
+                .find(|m| m.id == mid)
+                .map(|m| m.title.clone())
+                .unwrap_or_else(|| mid.to_string())
+        })
+        .unwrap_or_else(|| "Full Project".to_string());
 
     let total_slices: u32 = milestones.iter().map(|m| m.slices.len() as u32).sum();
-    let done_slices: u32 = milestones.iter()
+    let done_slices: u32 = milestones
+        .iter()
         .flat_map(|m| m.slices.iter())
         .filter(|s| s.done)
         .count() as u32;
@@ -8009,17 +8936,19 @@ pub async fn gsd2_get_reports_index(
 
     let reports_dir = Path::new(&project_path).join(".gsd").join("reports");
 
-    Ok(load_reports_index(&reports_dir).unwrap_or_else(|| ReportsIndex {
-        version: 1,
-        project_name: std::path::Path::new(&project_path)
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or(&project_id)
-            .to_string(),
-        project_path: project_path.clone(),
-        gsd_version: "2.0".to_string(),
-        entries: Vec::new(),
-    }))
+    Ok(
+        load_reports_index(&reports_dir).unwrap_or_else(|| ReportsIndex {
+            version: 1,
+            project_name: std::path::Path::new(&project_path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&project_id)
+                .to_string(),
+            project_path: project_path.clone(),
+            gsd_version: "2.0".to_string(),
+            entries: Vec::new(),
+        }),
+    )
 }
 
 // ============================================================
@@ -8090,7 +9019,11 @@ fn yaml_scalar_to_json(s: &str) -> serde_json::Value {
 
 /// Parse a single YAML item at a given indent level.
 /// Returns (key, value, lines_consumed).
-fn parse_yaml_item(lines: &[&str], start_idx: usize, expected_indent: usize) -> (String, serde_json::Value, usize) {
+fn parse_yaml_item(
+    lines: &[&str],
+    start_idx: usize,
+    expected_indent: usize,
+) -> (String, serde_json::Value, usize) {
     if start_idx >= lines.len() {
         return (String::new(), serde_json::Value::Null, 0);
     }
@@ -8141,7 +9074,11 @@ fn parse_yaml_item(lines: &[&str], start_idx: usize, expected_indent: usize) -> 
         } else if value_part.starts_with("- ") {
             // Inline array (rare, but handle it)
             let item = value_part[2..].trim();
-            (key, serde_json::Value::Array(vec![yaml_scalar_to_json(item)]), 1)
+            (
+                key,
+                serde_json::Value::Array(vec![yaml_scalar_to_json(item)]),
+                1,
+            )
         } else {
             // Inline scalar value
             (key, yaml_scalar_to_json(value_part), 1)
@@ -8153,7 +9090,11 @@ fn parse_yaml_item(lines: &[&str], start_idx: usize, expected_indent: usize) -> 
 
 /// Parse a YAML array block starting at lines[idx], where items are marked with "- ".
 /// Returns (Vec<Value>, next_idx).
-fn parse_yaml_array(lines: &[&str], start_idx: usize, expected_indent: usize) -> (Vec<serde_json::Value>, usize) {
+fn parse_yaml_array(
+    lines: &[&str],
+    start_idx: usize,
+    expected_indent: usize,
+) -> (Vec<serde_json::Value>, usize) {
     let mut result = Vec::new();
     let mut idx = start_idx;
 
@@ -8176,7 +9117,9 @@ fn parse_yaml_array(lines: &[&str], start_idx: usize, expected_indent: usize) ->
                 while idx < lines.len() {
                     let next_line = lines[idx];
                     let next_indent = next_line.len() - next_line.trim_start().len();
-                    if next_indent < child_indent || (next_indent == expected_indent && next_line.trim().starts_with("- ")) {
+                    if next_indent < child_indent
+                        || (next_indent == expected_indent && next_line.trim().starts_with("- "))
+                    {
                         break;
                     }
                     if next_indent == child_indent {
@@ -8267,7 +9210,13 @@ fn value_to_yaml_scalar(value: &serde_json::Value) -> String {
         serde_json::Value::Number(n) => n.to_string(),
         serde_json::Value::String(s) => {
             // Quote if it contains special chars or is a reserved word
-            if s.contains(':') || s.contains('#') || s.is_empty() || s == "null" || s == "true" || s == "false" {
+            if s.contains(':')
+                || s.contains('#')
+                || s.is_empty()
+                || s == "null"
+                || s == "true"
+                || s == "false"
+            {
                 format!("\"{}\"", s.replace('"', "\\\""))
             } else {
                 s.clone()
@@ -8288,7 +9237,11 @@ fn write_yaml_value(value: &serde_json::Value, indent: usize) -> String {
                 if let serde_json::Value::Object(_) | serde_json::Value::Array(_) = v {
                     result.push_str(&write_yaml_value(v, indent + 2));
                 } else {
-                    result.push_str(&format!("{}{}\n", " ".repeat(indent + 2), value_to_yaml_scalar(v)));
+                    result.push_str(&format!(
+                        "{}{}\n",
+                        " ".repeat(indent + 2),
+                        value_to_yaml_scalar(v)
+                    ));
                 }
             }
             result
@@ -8341,7 +9294,11 @@ fn json_to_yaml_frontmatter(val: &serde_json::Value) -> String {
 /// - Scalars: project wins, then global, then default
 /// - Arrays (skill-related): concatenate [project] + [global]
 /// - Objects (config): shallow merge (project overrides global, global overrides default)
-fn merge_preferences(project: &serde_json::Value, global: &serde_json::Value, defaults: &serde_json::Value) -> serde_json::Value {
+fn merge_preferences(
+    project: &serde_json::Value,
+    global: &serde_json::Value,
+    defaults: &serde_json::Value,
+) -> serde_json::Value {
     let mut result = defaults.clone();
 
     // Merge global into result
@@ -8410,7 +9367,11 @@ fn merge_preferences(project: &serde_json::Value, global: &serde_json::Value, de
 }
 
 /// Annotate each top-level key in merged with its origin scope: "project" / "global" / "default".
-fn annotate_scopes(merged: &serde_json::Value, project: &serde_json::Value, global: &serde_json::Value) -> HashMap<String, String> {
+fn annotate_scopes(
+    merged: &serde_json::Value,
+    project: &serde_json::Value,
+    global: &serde_json::Value,
+) -> HashMap<String, String> {
     let mut scopes = HashMap::new();
 
     if let Some(merged_obj) = merged.as_object() {
@@ -8430,15 +9391,12 @@ fn annotate_scopes(merged: &serde_json::Value, project: &serde_json::Value, glob
 
 /// Read a file and return its contents, or return empty string if file doesn't exist.
 fn read_preferences_file(path: &str) -> Result<String, String> {
-    std::fs::read_to_string(path)
-        .or_else(|_| Ok(String::new()))
+    std::fs::read_to_string(path).or_else(|_| Ok(String::new()))
 }
 
 /// R040 — Get preferences (merged from project + global + defaults).
 #[tauri::command]
-pub async fn gsd2_get_preferences(
-    project_path: String,
-) -> Result<PreferencesData, String> {
+pub async fn gsd2_get_preferences(project_path: String) -> Result<PreferencesData, String> {
     let global_prefs_path = dirs::home_dir()
         .ok_or("Cannot determine home directory")?
         .join(".gsd")
@@ -8548,7 +9506,7 @@ mod preferences_tests {
     fn yaml_scalar_to_json_coerces_numbers() {
         let int_val = yaml_scalar_to_json("42");
         assert!(int_val.is_number());
-        
+
         let float_val = yaml_scalar_to_json("3.14");
         assert!(float_val.is_number());
     }
@@ -8564,7 +9522,13 @@ mod preferences_tests {
         let yaml = "theme: dark\nsettings:\n  timeout: 30\n  debug: true";
         let result = parse_yaml_to_json(yaml);
         assert_eq!(result.get("theme").and_then(|v| v.as_str()), Some("dark"));
-        assert_eq!(result.get("settings").and_then(|v| v.get("timeout")).and_then(|v| v.as_i64()), Some(30));
+        assert_eq!(
+            result
+                .get("settings")
+                .and_then(|v| v.get("timeout"))
+                .and_then(|v| v.as_i64()),
+            Some(30)
+        );
     }
 
     #[test]

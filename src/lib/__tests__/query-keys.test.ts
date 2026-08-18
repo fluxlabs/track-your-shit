@@ -111,4 +111,50 @@ describe("queryKeys", () => {
       ]);
     });
   });
+
+  describe("Phase 12 artifact query keys", () => {
+    const projectId = "proj-123";
+
+    it("generates correct key shapes for all Phase 12 artifact readers", () => {
+      expect(queryKeys.gsdPhaseSpec(projectId, 1)).toEqual(["gsd", "phase-spec", projectId, 1]);
+      expect(queryKeys.gsdPhaseSecurity(projectId, 1)).toEqual(["gsd", "phase-security", projectId, 1]);
+      expect(queryKeys.gsdPhaseValidationDoc(projectId, 1)).toEqual(["gsd", "phase-validation-doc", projectId, 1]);
+      expect(queryKeys.gsdPhaseReview(projectId, 1)).toEqual(["gsd", "phase-review", projectId, 1]);
+      expect(queryKeys.gsdCodebaseDocs(projectId)).toEqual(["gsd", "codebase-docs", projectId]);
+      expect(queryKeys.gsdProcessDocs(projectId)).toEqual(["gsd", "process-docs", projectId]);
+    });
+
+    it("generates unique keys across the six new resources", () => {
+      const keys = [
+        queryKeys.gsdPhaseSpec(projectId, 1),
+        queryKeys.gsdPhaseSecurity(projectId, 1),
+        queryKeys.gsdPhaseValidationDoc(projectId, 1),
+        queryKeys.gsdPhaseReview(projectId, 1),
+        queryKeys.gsdCodebaseDocs(projectId),
+        queryKeys.gsdProcessDocs(projectId),
+      ];
+      const uniqueKeys = new Set(keys.map((k) => JSON.stringify(k)));
+      expect(uniqueKeys.size).toBe(keys.length);
+    });
+
+    it("differentiates phase-scoped keys by phase number", () => {
+      expect(queryKeys.gsdPhaseSpec(projectId, 1)).not.toEqual(queryKeys.gsdPhaseSpec(projectId, 2));
+      expect(queryKeys.gsdPhaseSecurity(projectId, 1)).not.toEqual(queryKeys.gsdPhaseSecurity(projectId, 2));
+      expect(queryKeys.gsdPhaseValidationDoc(projectId, 1)).not.toEqual(queryKeys.gsdPhaseValidationDoc(projectId, 2));
+      expect(queryKeys.gsdPhaseReview(projectId, 1)).not.toEqual(queryKeys.gsdPhaseReview(projectId, 2));
+    });
+
+    it("phase-scoped keys are distinct from existing gsd phase keys", () => {
+      // New phase-spec key must not collide with phase-context, verification, etc.
+      expect(queryKeys.gsdPhaseSpec(projectId, 1)).not.toEqual(queryKeys.gsdPhaseContext(projectId, 1));
+      expect(queryKeys.gsdPhaseSpec(projectId, 1)).not.toEqual(queryKeys.gsdVerification(projectId, 1));
+      expect(queryKeys.gsdPhaseSecurity(projectId, 1)).not.toEqual(queryKeys.gsdPhaseSpec(projectId, 1));
+    });
+
+    it("project-level keys are distinct across resources and from phase-scoped keys", () => {
+      expect(queryKeys.gsdCodebaseDocs(projectId)).not.toEqual(queryKeys.gsdProcessDocs(projectId));
+      expect(queryKeys.gsdCodebaseDocs(projectId)).not.toEqual(queryKeys.gsdResearch(projectId));
+      expect(queryKeys.gsdProcessDocs(projectId)).not.toEqual(queryKeys.gsdPhaseSpec(projectId, 1));
+    });
+  });
 });

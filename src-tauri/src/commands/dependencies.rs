@@ -191,10 +191,7 @@ fn extract_outdated_count(json: &Option<serde_json::Value>, pm: &str) -> i32 {
 
     match pm {
         // npm: top-level object { "pkg": { current, wanted, latest } }
-        "npm" | "yarn" => data
-            .as_object()
-            .map(|o| o.len() as i32)
-            .unwrap_or(0),
+        "npm" | "yarn" => data.as_object().map(|o| o.len() as i32).unwrap_or(0),
         // pnpm: array of { "name", "current", "latest", "wanted" } (pnpm 9+)
         //    or object { "pkg": { current, latest } } (older pnpm)
         "pnpm" => {
@@ -223,9 +220,15 @@ fn normalize_outdated(json: &Option<serde_json::Value>, pm: &str) -> Option<serd
                 // pnpm 9+ array format
                 let mut result = serde_json::Map::new();
                 for item in arr {
-                    let name = item.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
+                    let name = item
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("unknown");
                     let current = item.get("current").and_then(|v| v.as_str()).unwrap_or("");
-                    let wanted = item.get("wanted").and_then(|v| v.as_str()).unwrap_or(current);
+                    let wanted = item
+                        .get("wanted")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(current);
                     let latest = item.get("latest").and_then(|v| v.as_str()).unwrap_or("");
                     result.insert(
                         name.to_string(),

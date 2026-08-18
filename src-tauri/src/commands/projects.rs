@@ -3,8 +3,8 @@
 
 use crate::db::Database;
 use crate::models::{
-    GitInfo, ImportResult, MarkdownScanResult, Project, ProjectDocs,
-    ProjectUpdate, ProjectWithStats, RoadmapProgress, TechStack,
+    GitInfo, ImportResult, MarkdownScanResult, Project, ProjectDocs, ProjectUpdate,
+    ProjectWithStats, RoadmapProgress, TechStack,
 };
 use crate::pty::PtyManagerState;
 use crate::security::shell_escape_path;
@@ -13,6 +13,29 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
 type DbState = Arc<crate::db::DbPool>;
+
+/// Detect the GSD version for a project at the given path.
+///
+/// Returns:
+///   "gsd2-legacy" — project contains a .gsd/ directory (the frozen GSD-2 format).
+///                   Classified as gsd2-legacy (not gsd2) so that the frontend exact-match
+///                   `gsd_version === 'gsd2'` check never fires: the gsd2 UI never mounts
+///                   and the gsd2.rs .gsd/ readers become unreachable dead paths.
+///                   The module is frozen per D-02 (not deleted) as the basis for v1.3 gsd-pi.
+///   "gsd1"        — project contains a .planning/ directory (the live GSD-1 format).
+///   "none"        — neither directory present.
+///
+/// Order: .gsd/ is checked first so a project containing both classifies as gsd2-legacy
+/// (it is a legacy project; it must never route into a live .gsd/ reader path).
+fn detect_gsd_version(project_root: &std::path::Path) -> &'static str {
+    if project_root.join(".gsd").is_dir() {
+        "gsd2-legacy"
+    } else if project_root.join(".planning").is_dir() {
+        "gsd1"
+    } else {
+        "none"
+    }
+}
 
 /// Get the Claude CLI path
 fn get_claude_path(_db: &Database) -> String {
@@ -145,13 +168,7 @@ pub async fn import_project(
         .map_err(|e| e.to_string())?;
 
         // Detect and store GSD version at import time (VERS-01)
-        let gsd_version = if std::path::Path::new(&path).join(".gsd").is_dir() {
-            "gsd2"
-        } else if std::path::Path::new(&path).join(".planning").is_dir() {
-            "gsd1"
-        } else {
-            "none"
-        };
+        let gsd_version = detect_gsd_version(std::path::Path::new(&path));
         conn.execute(
             "UPDATE projects SET gsd_version = ?1 WHERE id = ?2",
             params![gsd_version, &id],
@@ -252,10 +269,7 @@ pub async fn import_project_enhanced(
             tracing::error!("Failed to detect tech stack: {}", e);
             e
         })?;
-    tracing::info!(
-        "Tech stack detected: planning={}",
-        tech_stack.has_planning
-    );
+    tracing::info!("Tech stack detected: planning={}", tech_stack.has_planning);
 
     // Read project docs
     let docs: Option<ProjectDocs> =
@@ -323,13 +337,7 @@ pub async fn import_project_enhanced(
         .map_err(|e| e.to_string())?;
 
         // Detect and store GSD version at import time (VERS-01)
-        let gsd_version = if std::path::Path::new(&path).join(".gsd").is_dir() {
-            "gsd2"
-        } else if std::path::Path::new(&path).join(".planning").is_dir() {
-            "gsd1"
-        } else {
-            "none"
-        };
+        let gsd_version = detect_gsd_version(std::path::Path::new(&path));
         conn.execute(
             "UPDATE projects SET gsd_version = ?1 WHERE id = ?2",
             params![gsd_version, &id],
@@ -342,9 +350,7 @@ pub async fn import_project_enhanced(
 
     // Handle based on import mode
     let (roadmap_synced, pty_session_id) = match import_mode {
-        "existing" => {
-            (false, None)
-        }
+        "existing" => (false, None),
         "gsd_native" => {
             // GSD native import - skip PTY conversion, sync directly from .planning/
             // Description was already extracted from docs earlier. If still None,
@@ -357,9 +363,12 @@ pub async fn import_project_enhanced(
                         let fallback_desc: Option<String> = content
                             .lines()
                             .map(|l| l.trim())
-                            .find(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with("<!--"))
+                            .find(|l| {
+                                !l.is_empty() && !l.starts_with('#') && !l.starts_with("<!--")
+                            })
                             .map(|l| {
-                                let cleaned = crate::commands::filesystem::strip_markdown_inline_pub(l);
+                                let cleaned =
+                                    crate::commands::filesystem::strip_markdown_inline_pub(l);
                                 if cleaned.len() > 200 {
                                     format!("{}...", &cleaned[..197])
                                 } else {
@@ -943,4 +952,76 @@ pub async fn toggle_favorite(
         .map_err(|e| e.to_string())?;
 
     Ok(new_state)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::detect_gsd_version;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    /// Create a unique temp directory for test isolation (no tempfile crate).
+    fn unique_temp_dir(label: &str) -> std::path::PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.subsec_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!("vcca_test_{}_{}", label, nanos));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    /// Test D-05/RET-04: .planning/-only project classifies as gsd1.
+    #[test]
+    fn test_detect_gsd_version_planning_only_is_gsd1() {
+        let dir = unique_temp_dir("planning_only");
+        fs::create_dir_all(dir.join(".planning")).expect("create .planning");
+        assert_eq!(detect_gsd_version(&dir), "gsd1");
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Test D-01/RET-01: .gsd/-only project classifies as gsd2-legacy (never gsd2).
+    #[test]
+    fn test_detect_gsd_version_gsd_only_is_gsd2_legacy_not_gsd2() {
+        let dir = unique_temp_dir("gsd_only");
+        fs::create_dir_all(dir.join(".gsd")).expect("create .gsd");
+        let version = detect_gsd_version(&dir);
+        assert_eq!(
+            version, "gsd2-legacy",
+            ".gsd/-only project must classify as gsd2-legacy (freeze gate D-01)"
+        );
+        assert_ne!(
+            version, "gsd2",
+            ".gsd/-only project must NEVER classify as gsd2 (would re-open the live .gsd/ path)"
+        );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Test D-01: project with BOTH .gsd/ and .planning/ classifies as gsd2-legacy.
+    /// .gsd/ must take precedence — such a project is a legacy GSD-2 project.
+    #[test]
+    fn test_detect_gsd_version_both_dirs_is_gsd2_legacy() {
+        let dir = unique_temp_dir("both_dirs");
+        fs::create_dir_all(dir.join(".gsd")).expect("create .gsd");
+        fs::create_dir_all(dir.join(".planning")).expect("create .planning");
+        let version = detect_gsd_version(&dir);
+        assert_eq!(
+            version, "gsd2-legacy",
+            "project with both .gsd/ and .planning/ must classify as gsd2-legacy (D-01)"
+        );
+        assert_ne!(
+            version, "gsd1",
+            "project with .gsd/ must not downgrade to gsd1 when .planning/ is also present"
+        );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Test: project with neither .gsd/ nor .planning/ classifies as none.
+    #[test]
+    fn test_detect_gsd_version_neither_is_none() {
+        let dir = unique_temp_dir("neither");
+        let version = detect_gsd_version(&dir);
+        assert_eq!(version, "none");
+        fs::remove_dir_all(&dir).ok();
+    }
 }

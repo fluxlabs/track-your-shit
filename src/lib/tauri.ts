@@ -1252,6 +1252,32 @@ export interface GsdPhaseResearch {
   source_file: string;
 }
 
+// ============================================================
+// Phase 12 Artifact Reader Interfaces (ARTF-01..04)
+// ============================================================
+
+/** One markdown artifact for a phase (SPEC, AI-SPEC, UI-SPEC, SECURITY, VALIDATION, REVIEW). */
+export interface GsdPhaseDoc {
+  doc_type: string;
+  present: boolean;
+  raw_content: string | null;
+  source_file: string | null;
+}
+
+/** Wraps a phase's grouped spec/design docs (SPEC + AI-SPEC + UI-SPEC) in one round-trip (ARTF-01). */
+export interface GsdPhaseDocSet {
+  phase_number: number;
+  docs: GsdPhaseDoc[];
+}
+
+/** A project-level process doc (discussion-log, retrospective, discovery, etc.) (ARTF-04). */
+export interface GsdProcessDoc {
+  doc_type: string;
+  present: boolean;
+  raw_content: string | null;
+  source_file: string | null;
+}
+
 export interface GsdVelocity {
   total_plans: number | null;
   avg_duration: string | null;
@@ -1355,6 +1381,20 @@ export const gsdListPhaseResearch = (projectId: string) =>
   invoke<GsdPhaseResearch[]>("gsd_list_phase_research", { projectId });
 export const gsdGetPhaseResearch = (projectId: string, phaseNumber: number) =>
   invoke<GsdPhaseResearch>("gsd_get_phase_research", { projectId, phaseNumber });
+// Phase 12 artifact reader wrappers (ARTF-01..04)
+export const gsdGetPhaseSpec = (projectId: string, phaseNumber: number) =>
+  invoke<GsdPhaseDocSet>("gsd_get_phase_spec", { projectId, phaseNumber });
+export const gsdGetPhaseSecurity = (projectId: string, phaseNumber: number) =>
+  invoke<GsdPhaseDoc>("gsd_get_phase_security", { projectId, phaseNumber });
+export const gsdGetPhaseValidationDoc = (projectId: string, phaseNumber: number) =>
+  invoke<GsdPhaseDoc>("gsd_get_phase_validation_doc", { projectId, phaseNumber });
+export const gsdGetPhaseReview = (projectId: string, phaseNumber: number) =>
+  invoke<GsdPhaseDoc>("gsd_get_phase_review", { projectId, phaseNumber });
+export const gsdGetCodebaseDocs = (projectId: string) =>
+  invoke<GsdResearchDoc[]>("gsd_get_codebase_docs", { projectId });
+export const gsdGetProcessDocs = (projectId: string) =>
+  invoke<GsdProcessDoc[]>("gsd_get_process_docs", { projectId });
+
 export const gsdListMilestoneAudits = (projectId: string) =>
   invoke<GsdMilestoneAudit[]>("gsd_list_milestone_audits", { projectId });
 export const gsdSyncProject = (projectId: string) =>

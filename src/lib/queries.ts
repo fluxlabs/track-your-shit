@@ -1189,6 +1189,56 @@ export const useGsdPhaseContext = (projectId: string, phase: number) =>
     enabled: !!projectId && phase > 0,
   });
 
+// Phase 12 artifact reader hooks (ARTF-01..04)
+// retry:false on all — absent artifacts must not retry (D-06)
+export const useGsdPhaseSpec = (projectId: string, phase: number) =>
+  useQuery({
+    queryKey: queryKeys.gsdPhaseSpec(projectId, phase),
+    queryFn: () => api.gsdGetPhaseSpec(projectId, phase),
+    enabled: !!projectId && phase > 0,
+    retry: false,
+  });
+
+export const useGsdPhaseSecurity = (projectId: string, phase: number) =>
+  useQuery({
+    queryKey: queryKeys.gsdPhaseSecurity(projectId, phase),
+    queryFn: () => api.gsdGetPhaseSecurity(projectId, phase),
+    enabled: !!projectId && phase > 0,
+    retry: false,
+  });
+
+export const useGsdPhaseValidationDoc = (projectId: string, phase: number) =>
+  useQuery({
+    queryKey: queryKeys.gsdPhaseValidationDoc(projectId, phase),
+    queryFn: () => api.gsdGetPhaseValidationDoc(projectId, phase),
+    enabled: !!projectId && phase > 0,
+    retry: false,
+  });
+
+export const useGsdPhaseReview = (projectId: string, phase: number) =>
+  useQuery({
+    queryKey: queryKeys.gsdPhaseReview(projectId, phase),
+    queryFn: () => api.gsdGetPhaseReview(projectId, phase),
+    enabled: !!projectId && phase > 0,
+    retry: false,
+  });
+
+export const useGsdCodebaseDocs = (projectId: string) =>
+  useQuery({
+    queryKey: queryKeys.gsdCodebaseDocs(projectId),
+    queryFn: () => api.gsdGetCodebaseDocs(projectId),
+    enabled: !!projectId,
+    retry: false,
+  });
+
+export const useGsdProcessDocs = (projectId: string) =>
+  useQuery({
+    queryKey: queryKeys.gsdProcessDocs(projectId),
+    queryFn: () => api.gsdGetProcessDocs(projectId),
+    enabled: !!projectId,
+    retry: false,
+  });
+
 export const useGsdValidations = (projectId: string) =>
   useQuery({
     queryKey: queryKeys.gsdValidations(projectId),
@@ -1796,6 +1846,36 @@ export const useProjectDocs = (path: string) =>
     queryFn: () => api.readProjectDocs(path),
     enabled: !!path,
     staleTime: 5 * 60 * 1000,
+  });
+
+// AI Tools Detected — consumed by AiToolsDetectedCard in project-overview-tab.
+// STUB: the backend AI-tool scanner and the `agent-editor` view this card links to
+// were never built (the card UI was committed ahead of its data layer). This returns
+// an empty result so the card no-ops cleanly and the build stays green. Wire to a real
+// invoke wrapper when the detection command lands (tracked for v1.3+).
+export interface AiToolDetection {
+  tool: string;
+  label: string;
+  files: { scope: string }[];
+}
+
+export interface ProjectWorkflowsInfo {
+  has_any_ai_config: boolean;
+  tools: AiToolDetection[];
+  tool_count: number;
+  file_count: number;
+}
+
+export const useProjectWorkflows = (path: string) =>
+  useQuery({
+    queryKey: queryKeys.projectWorkflows(path),
+    queryFn: async (): Promise<ProjectWorkflowsInfo> => ({
+      has_any_ai_config: false,
+      tools: [],
+      tool_count: 0,
+      file_count: 0,
+    }),
+    enabled: !!path,
   });
 
 export const useDetectTechStack = () => {

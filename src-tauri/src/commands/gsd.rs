@@ -6,125 +6,29 @@
 use crate::db::Database;
 use crate::models::{
     GsdConfig, GsdCurrentPosition, GsdDebugSession, GsdMilestone, GsdMilestoneAudit,
-    GsdPhaseContext, GsdPhaseResearch, GsdPhaseVelocity, GsdPlan, GsdPlanTask, GsdProjectInfo,
-    GsdRequirement, GsdResearchDoc, GsdState, GsdSummary, GsdSummaryDecision, GsdSyncResult,
-    GsdTodo, GsdTodoInput, GsdUatResult, GsdValidation, GsdVelocity, GsdVerification,
-    TaskVerification, UatIssue, UatTestResult, WaveTracking,
+    GsdPhaseContext, GsdPhaseDoc, GsdPhaseDocSet, GsdPhaseResearch, GsdPhaseVelocity, GsdPlan,
+    GsdPlanTask, GsdProcessDoc, GsdProjectInfo, GsdRequirement, GsdResearchDoc, GsdState,
+    GsdSummary, GsdSummaryDecision, GsdSyncResult, GsdTodo, GsdTodoInput, GsdUatResult,
+    GsdValidation, GsdVelocity, GsdVerification, TaskVerification, UatIssue, UatTestResult,
+    WaveTracking,
 };
 use regex::Regex;
 use rusqlite::params;
-use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 type DbState = Arc<crate::db::DbPool>;
 
 // ============================================================
-// Helpers
+// Helpers (imported from gsd_common — D-05)
 // ============================================================
 
-/// Resolve project path from DB by project_id
-fn get_project_path(db: &Database, project_id: &str) -> Result<String, String> {
-    db.conn()
-        .query_row(
-            "SELECT path FROM projects WHERE id = ?1",
-            params![project_id],
-            |row| row.get::<_, String>(0),
-        )
-        .map_err(|e| format!("Project not found: {}", e))
-}
-
-/// Parse YAML-like frontmatter from markdown content.
-/// Handles both standard position (start of file) and GSD summary files
-/// where frontmatter appears after a heading/copyright block.
-fn parse_frontmatter(content: &str) -> (HashMap<String, String>, String) {
-    let mut frontmatter = HashMap::new();
-    let mut body = content.to_string();
-
-    // Find the first `---` delimiter (may not be at position 0 for GSD summaries)
-    let fm_start = if content.starts_with("---") {
-        Some(0)
-    } else {
-        // Look for `---` on its own line (preceded by newline)
-        content.find("\n---").map(|idx| idx + 1)
-    };
-
-    if let Some(start) = fm_start {
-        let after_open = start + 3;
-        if after_open < content.len() {
-            if let Some(end_offset) = content[after_open..].find("\n---") {
-                let fm_str = &content[after_open..after_open + end_offset];
-                let after_close = after_open + end_offset + 4; // skip past \n---
-                let body_start = if after_close < content.len() {
-                    after_close
-                } else {
-                    content.len()
-                };
-
-                // Body is everything before the frontmatter + everything after it
-                let pre_fm = if start > 0 { &content[..start] } else { "" };
-                let post_fm = &content[body_start..];
-                body = format!("{}{}", pre_fm.trim(), post_fm);
-
-                // Parse frontmatter key-value pairs (skip multiline YAML lists)
-                for line in fm_str.lines() {
-                    let trimmed = line.trim();
-                    // Skip empty lines, list items, and indented continuation lines
-                    if trimmed.is_empty()
-                        || trimmed.starts_with('-')
-                        || line.starts_with(' ')
-                        || line.starts_with('\t')
-                    {
-                        continue;
-                    }
-                    if let Some(colon_idx) = trimmed.find(':') {
-                        let key = trimmed[..colon_idx].trim().to_string();
-                        let val = trimmed[colon_idx + 1..].trim().to_string();
-                        if !key.is_empty() && !key.contains(' ') {
-                            frontmatter.insert(key, val);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    (frontmatter, body)
-}
-
-/// Extract a section from markdown by heading
-fn extract_section(content: &str, heading: &str) -> Option<String> {
-    let heading_lower = heading.to_lowercase();
-    let mut in_section = false;
-    let mut section_level = 0;
-    let mut lines = Vec::new();
-
-    for line in content.lines() {
-        if line.starts_with('#') {
-            let level = line.chars().take_while(|&c| c == '#').count();
-            let title = line.trim_start_matches('#').trim().to_lowercase();
-
-            if title.contains(&heading_lower) {
-                in_section = true;
-                section_level = level;
-                continue;
-            } else if in_section && level <= section_level {
-                break;
-            }
-        }
-
-        if in_section {
-            lines.push(line);
-        }
-    }
-
-    if lines.is_empty() {
-        None
-    } else {
-        Some(lines.join("\n").trim().to_string())
-    }
-}
+use super::gsd_common::{
+    extract_nested_progress, extract_section, extract_xml_tag, extract_yaml_list, get_project_path,
+    parse_frontmatter, resolve_gsd_path, warn_unknown_fields,
+};
+use super::gsd_common::{KNOWN_PLAN_KEYS, KNOWN_STATE_KEYS, KNOWN_SUMMARY_KEYS};
 
 /// Generate a short hex ID
 fn gen_id() -> String {
@@ -161,6 +65,7 @@ pub async fn gsd_get_project_info(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
+    // Shared file — intentionally root-scoped (not workstream-aware per SCHM-04 / Pitfall 3)
     let path = Path::new(&project_path)
         .join(".planning")
         .join("PROJECT.md");
@@ -173,7 +78,10 @@ pub async fn gsd_get_project_info(
     let (frontmatter, body) = parse_frontmatter(&content);
 
     Ok(GsdProjectInfo {
-        vision: extract_section(&body, "vision").or_else(|| extract_section(&body, "description")),
+        // SCHM-02: add "what this is" alias so projects using the next template resolve vision
+        vision: extract_section(&body, "vision")
+            .or_else(|| extract_section(&body, "description"))
+            .or_else(|| extract_section(&body, "what this is")),
         milestone: frontmatter
             .get("milestone")
             .or_else(|| frontmatter.get("current_milestone"))
@@ -212,7 +120,8 @@ pub async fn gsd_get_state(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let path = Path::new(&project_path).join(".planning").join("STATE.md");
+    // Workstream-aware: STATE.md lives under the active workstream subtree (SCHM-04)
+    let path = resolve_gsd_path(&project_path, None, "STATE.md");
 
     if !path.exists() {
         return Ok(GsdState {
@@ -228,6 +137,26 @@ pub async fn gsd_get_state(
     let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
     let (frontmatter, body) = parse_frontmatter(&content);
 
+    // SCHM-02: extract nested progress.* values from the raw frontmatter string.
+    // parse_frontmatter skips indented lines, so we re-slice the --- block for the
+    // second-pass nested-key extractor. This is safe even if the frontmatter is absent.
+    let fm_raw: &str = if content.starts_with("---") {
+        let after = &content[3..];
+        after.find("\n---").map(|end| &after[..end]).unwrap_or("")
+    } else {
+        content
+            .find("\n---")
+            .and_then(|start| {
+                let after = &content[start + 4..];
+                after.find("\n---").map(|end| &after[..end])
+            })
+            .unwrap_or("")
+    };
+    let nested_progress = extract_nested_progress(fm_raw);
+
+    // D-04: log any unrecognized STATE.md frontmatter fields via tracing (never hard-fail)
+    warn_unknown_fields(&frontmatter, KNOWN_STATE_KEYS, "STATE.md");
+
     let current_position = Some(GsdCurrentPosition {
         milestone: frontmatter.get("milestone").cloned(),
         phase: frontmatter
@@ -241,6 +170,24 @@ pub async fn gsd_get_state(
             .or_else(|| extract_section(&body, "status")),
         last_activity: frontmatter.get("last_activity").cloned(),
         progress: extract_section(&body, "progress"),
+        // SCHM-02: nested progress counters
+        progress_total_phases: nested_progress
+            .get("progress.total_phases")
+            .and_then(|v| v.parse::<i32>().ok()),
+        progress_completed_phases: nested_progress
+            .get("progress.completed_phases")
+            .and_then(|v| v.parse::<i32>().ok()),
+        progress_total_plans: nested_progress
+            .get("progress.total_plans")
+            .and_then(|v| v.parse::<i32>().ok()),
+        progress_completed_plans: nested_progress
+            .get("progress.completed_plans")
+            .and_then(|v| v.parse::<i32>().ok()),
+        progress_percent: nested_progress
+            .get("progress.percent")
+            .and_then(|v| v.parse::<f32>().ok()),
+        // SCHM-02: gsd_state_version from frontmatter
+        gsd_state_version: frontmatter.get("gsd_state_version").cloned(),
     });
 
     // Extract decisions as bullet points
@@ -336,6 +283,7 @@ pub async fn gsd_get_config(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
+    // Shared file — intentionally root-scoped (not workstream-aware per SCHM-04 / Pitfall 3)
     let path = Path::new(&project_path)
         .join(".planning")
         .join("config.json");
@@ -414,9 +362,8 @@ pub async fn gsd_list_requirements(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let path = Path::new(&project_path)
-        .join(".planning")
-        .join("REQUIREMENTS.md");
+    // Workstream-aware: REQUIREMENTS.md lives under the active workstream subtree (SCHM-04)
+    let path = resolve_gsd_path(&project_path, None, "REQUIREMENTS.md");
 
     if !path.exists() {
         return Ok(vec![]);
@@ -434,6 +381,12 @@ fn parse_requirements(content: &str) -> Result<Vec<GsdRequirement>, String> {
     let req_re = Regex::new(r"^[-*]\s+(?:(\w+-\d+):?\s+)?(.+)$").map_err(|e| e.to_string())?;
     let tag_re = Regex::new(r"\[(\w+):\s*([^\]]+)\]").map_err(|e| e.to_string())?;
 
+    // gsd-core@next requirement lines: `- [ ] **QWIN-01** ⚡: desc` / `- [x] **METHOD-01**: desc`
+    // (bold ID, optional checkbox + marker emoji before the colon).
+    let bold_req_re =
+        Regex::new(r"^[-*]\s+(?:\[([ xX])\]\s*)?\*\*([A-Z][A-Z0-9_-]*-\d+)\*\*[^:]*:\s*(.+)$")
+            .map_err(|e| e.to_string())?;
+
     for line in content.lines() {
         let trimmed = line.trim();
 
@@ -446,6 +399,43 @@ fn parse_requirements(content: &str) -> Result<Vec<GsdRequirement>, String> {
             {
                 current_category = Some(heading.to_string());
             }
+            continue;
+        }
+
+        // gsd-core@next bold-ID/checkbox format takes precedence over the legacy bare-ID format.
+        if let Some(caps) = bold_req_re.captures(trimmed) {
+            let req_id = caps.get(2).unwrap().as_str().to_string();
+            let mut description = caps.get(3).map_or("", |m| m.as_str()).trim().to_string();
+            let mut priority = None;
+            let mut status = match caps.get(1).map(|m| m.as_str()) {
+                Some("x") | Some("X") => Some("done".to_string()),
+                _ => None,
+            };
+            let mut phase = None;
+
+            for tag_cap in tag_re.captures_iter(&description.clone()) {
+                let key = tag_cap.get(1).unwrap().as_str().to_lowercase();
+                let val = tag_cap.get(2).unwrap().as_str().trim().to_string();
+                match key.as_str() {
+                    "priority" | "p" => priority = Some(val),
+                    "status" | "s" => status = Some(val),
+                    "phase" => phase = Some(val),
+                    _ => {}
+                }
+                description = description
+                    .replace(tag_cap.get(0).unwrap().as_str(), "")
+                    .trim()
+                    .to_string();
+            }
+
+            requirements.push(GsdRequirement {
+                req_id,
+                description,
+                category: current_category.clone(),
+                priority,
+                status,
+                phase,
+            });
             continue;
         }
 
@@ -521,9 +511,8 @@ pub async fn gsd_list_milestones(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let path = Path::new(&project_path)
-        .join(".planning")
-        .join("ROADMAP.md");
+    // Workstream-aware: ROADMAP.md lives under the active workstream subtree (SCHM-04)
+    let path = resolve_gsd_path(&project_path, None, "ROADMAP.md");
 
     if !path.exists() {
         return Ok(vec![]);
@@ -555,6 +544,15 @@ fn parse_milestones(content: &str) -> Result<Vec<GsdMilestone>, String> {
         Regex::new(r"^[-*]\s+[^*]*\*{2}\s*(?:v?([\d.]+)\s+)?(.+?)\s*\*{2}\s*[—\-]+\s*(.+)$")
             .map_err(|e| e.to_string())?;
 
+    // gsd-core@next: milestones are H3 headings under `## Phases`, e.g.
+    //   ### Milestone 1 — Newcomer Readiness (fast-track, ASAP)
+    let h3_ms_re = Regex::new(r"(?i)^###\s+milestone\b\s*\d*\s*[—–\-:]*\s*(.+)$")
+        .map_err(|e| e.to_string())?;
+
+    // Single phase reference (e.g. "**Phase 13:**") for deriving a milestone's phase range
+    // from its checkbox bullets when no explicit "Phases N-M" range is present.
+    let single_phase_re = Regex::new(r"(?i)phase\s+(\d+)").map_err(|e| e.to_string())?;
+
     let mut current_name: Option<String> = None;
     let mut current_version: Option<String> = None;
     let mut current_body = String::new();
@@ -567,7 +565,9 @@ fn parse_milestones(content: &str) -> Result<Vec<GsdMilestone>, String> {
                  body: &str,
                  milestones: &mut Vec<GsdMilestone>| {
         if let Some(name) = name {
-            let (phase_start, phase_end) = phase_re
+            // Phase range: explicit "Phases N-M" first; otherwise derive min/max from individual
+            // "Phase N" references (gsd-core@next lists each phase as its own checkbox bullet).
+            let (mut phase_start, mut phase_end) = phase_re
                 .captures(body)
                 .map(|c| {
                     (
@@ -576,14 +576,30 @@ fn parse_milestones(content: &str) -> Result<Vec<GsdMilestone>, String> {
                     )
                 })
                 .unwrap_or((None, None));
+            if phase_start.is_none() {
+                let nums: Vec<i32> = single_phase_re
+                    .captures_iter(body)
+                    .filter_map(|c| c.get(1).and_then(|m| m.as_str().parse::<i32>().ok()))
+                    .collect();
+                if !nums.is_empty() {
+                    phase_start = nums.iter().min().copied();
+                    phase_end = nums.iter().max().copied();
+                }
+            }
 
+            // Status: checkbox-aware (gsd-core@next uses `- [x]` / `- [ ]` phase bullets), falling
+            // back to emoji/keyword markers used by the legacy bullet format.
             let body_lower = body.to_lowercase();
-            let is_completed = body_lower.contains("✅")
-                || body_lower.contains("completed")
-                || body_lower.contains("shipped");
+            let has_unchecked = body.contains("- [ ]") || body.contains("- []");
+            let has_checked = body.contains("- [x]") || body.contains("- [X]");
+            let is_completed = (has_checked && !has_unchecked)
+                || body_lower.contains("✅")
+                || body_lower.contains("shipped")
+                || (body_lower.contains("completed") && !has_unchecked);
             let status = if is_completed {
                 Some("completed".to_string())
-            } else if body_lower.contains("🔄")
+            } else if (has_checked && has_unchecked)
+                || body_lower.contains("🔄")
                 || body_lower.contains("🚧")
                 || body_lower.contains("in progress")
                 || body_lower.contains("(current)")
@@ -619,8 +635,30 @@ fn parse_milestones(content: &str) -> Result<Vec<GsdMilestone>, String> {
     };
 
     for line in content.lines() {
-        // Try bullet-point milestone format (e.g. - ✅ **v1.0 Name** — Phases 1-5)
-        if let Some(caps) = bullet_re.captures(line.trim()) {
+        // gsd-core@next H3 milestone heading (### Milestone N — Name) under ## Phases
+        if let Some(caps) = h3_ms_re.captures(line.trim()) {
+            flush(
+                &current_name,
+                &current_version,
+                &current_body,
+                &mut milestones,
+            );
+            current_name = caps.get(1).map(|m| m.as_str().trim().to_string());
+            current_version = None;
+            current_body.clear();
+            continue;
+        }
+
+        // Try bullet-point milestone format (e.g. - ✅ **v1.0 Name** — Phases 1-5).
+        // Checkbox bullets (- [x] / - [ ]) are phase items, not milestone rows — skip them so
+        // they fall through to the current milestone's body (for phase-range + status).
+        let bullet_trim = line.trim();
+        let bullet_caps = if bullet_trim.starts_with("- [") || bullet_trim.starts_with("* [") {
+            None
+        } else {
+            bullet_re.captures(bullet_trim)
+        };
+        if let Some(caps) = bullet_caps {
             flush(
                 &current_name,
                 &current_version,
@@ -682,6 +720,8 @@ fn parse_milestones(content: &str) -> Result<Vec<GsdMilestone>, String> {
                                 | "appendix"
                                 | "requirements"
                                 | "changelog"
+                                | "phase details"
+                                | "phase numbering"
                         )
                 });
 
@@ -1431,28 +1471,43 @@ pub async fn gsd_get_verification(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let phases_dir = Path::new(&project_path).join(".planning").join("phases");
+    // Workstream-aware: phases/ lives under the active workstream subtree (SCHM-04)
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
 
     // Find matching phase directory (formats: "01", "01-02", "001", etc.)
-    let phase_dir = find_phase_dir(&phases_dir, phase_number)?;
-    let verification_path = phase_dir.join("VERIFICATION.md");
-
-    if !verification_path.exists() {
-        return Err(format!(
-            "No VERIFICATION.md found for phase {}",
-            phase_number
-        ));
-    }
+    let phase_dir = find_phase_dir(&phases_dir, &phase_number.to_string())?;
+    let verification_path = find_phase_doc(&phase_dir, "VERIFICATION")
+        .ok_or_else(|| format!("No VERIFICATION.md found for phase {}", phase_number))?;
 
     let content = fs::read_to_string(&verification_path).map_err(|e| e.to_string())?;
     parse_verification(&content, phase_number)
 }
 
-fn find_phase_dir(phases_dir: &Path, phase_number: i32) -> Result<std::path::PathBuf, String> {
+/// Precompiled regex for decimal-aware phase number extraction (Pitfall 4 — compile once).
+/// Matches the leading number from phase directory names like "01-name", "02.1-hotfix".
+/// Zero-stripping via 0* before the integer part so "01" and "1" compare equal as strings.
+static PHASE_DIR_RE: OnceLock<Regex> = OnceLock::new();
+
+fn phase_dir_regex() -> &'static Regex {
+    PHASE_DIR_RE.get_or_init(|| {
+        // SCHM-03: extended to capture decimal phases (e.g. "2.1") without collision with "2"
+        Regex::new(r"^0*(\d+(?:\.\d+)?)").expect("PHASE_DIR_RE is valid")
+    })
+}
+
+/// Find a phase directory by phase number string.
+///
+/// Handles both integer phases ("2") and decimal phases ("2.1") without collision (SCHM-03).
+/// Phase identity is compared by string equality after zero-stripping (e.g. "2" vs "2.1").
+///
+/// The `phase_number` parameter is `&str` so callers can pass "2" or "2.1".
+/// IPC commands that receive `i32` should call `find_phase_dir(..., &phase_number.to_string())`.
+fn find_phase_dir(phases_dir: &Path, phase_number: &str) -> Result<std::path::PathBuf, String> {
     if !phases_dir.exists() {
         return Err("No .planning/phases/ directory found".to_string());
     }
 
+    let re = phase_dir_regex();
     if let Ok(entries) = fs::read_dir(phases_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -1461,13 +1516,15 @@ fn find_phase_dir(phases_dir: &Path, phase_number: i32) -> Result<std::path::Pat
                     .file_name()
                     .map_or("".to_string(), |f| f.to_string_lossy().to_string());
 
-                // Match patterns: "01", "01-02", "001", "01-core-setup"
-                let num_re = Regex::new(r"^0*(\d+)").unwrap();
-                if let Some(caps) = num_re.captures(&dir_name) {
-                    if let Ok(num) = caps.get(1).unwrap().as_str().parse::<i32>() {
-                        if num == phase_number {
-                            return Ok(path);
-                        }
+                // SCHM-03: extract decimal-aware phase id, then compare as strings so
+                // "2" != "2.1" and both resolve to distinct directories.
+                if let Some(caps) = re.captures(&dir_name) {
+                    let extracted = caps.get(1).unwrap().as_str();
+                    // Strip leading zeros for integer comparison (e.g. "02" → "2")
+                    let normalized = strip_leading_zeros(extracted);
+                    let target = strip_leading_zeros(phase_number);
+                    if normalized == target {
+                        return Ok(path);
                     }
                 }
             }
@@ -1478,6 +1535,20 @@ fn find_phase_dir(phases_dir: &Path, phase_number: i32) -> Result<std::path::Pat
         "Phase directory not found for phase {}",
         phase_number
     ))
+}
+
+/// Strip leading zeros from a numeric string for comparison, preserving decimal parts.
+/// "02" → "2", "02.1" → "2.1", "2.1" → "2.1", "2" → "2"
+fn strip_leading_zeros(s: &str) -> String {
+    if let Some(dot) = s.find('.') {
+        // Decimal: strip integer part and keep fractional
+        let int_part = s[..dot].trim_start_matches('0');
+        let int_part = if int_part.is_empty() { "0" } else { int_part };
+        format!("{}{}", int_part, &s[dot..])
+    } else {
+        let stripped = s.trim_start_matches('0');
+        if stripped.is_empty() { "0" } else { stripped }.to_string()
+    }
 }
 
 fn parse_verification(content: &str, phase_number: i32) -> Result<GsdVerification, String> {
@@ -1558,14 +1629,12 @@ pub async fn gsd_get_phase_context(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let phases_dir = Path::new(&project_path).join(".planning").join("phases");
+    // Workstream-aware: phases/ lives under the active workstream subtree (SCHM-04)
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
 
-    let phase_dir = find_phase_dir(&phases_dir, phase_number)?;
-    let context_path = phase_dir.join("CONTEXT.md");
-
-    if !context_path.exists() {
-        return Err(format!("No CONTEXT.md found for phase {}", phase_number));
-    }
+    let phase_dir = find_phase_dir(&phases_dir, &phase_number.to_string())?;
+    let context_path = find_phase_doc(&phase_dir, "CONTEXT")
+        .ok_or_else(|| format!("No CONTEXT.md found for phase {}", phase_number))?;
 
     let content = fs::read_to_string(&context_path).map_err(|e| e.to_string())?;
 
@@ -1613,7 +1682,8 @@ pub async fn gsd_get_phase_context(
 // ============================================================
 
 fn find_plan_files(phase_dir: &Path) -> Vec<std::path::PathBuf> {
-    let re = Regex::new(r"^\d+-\d+-PLAN\.md$").unwrap();
+    // Accept both legacy `{NN}-{MM}-PLAN.md` and gsd-core@next `{NN}-PLAN.md` (one plan per phase).
+    let re = Regex::new(r"^\d+(-\d+)?-PLAN\.md$").unwrap();
     let mut files: Vec<std::path::PathBuf> = Vec::new();
 
     if let Ok(entries) = fs::read_dir(phase_dir) {
@@ -1629,15 +1699,46 @@ fn find_plan_files(phase_dir: &Path) -> Vec<std::path::PathBuf> {
     files
 }
 
+/// Resolve a phase doc (CONTEXT/VERIFICATION/etc.) within a phase directory, supporting
+/// gsd-core@next `{NN}-NAME.md`, legacy `{NN}-{MM}-NAME.md`, and plain `NAME.md` naming.
+/// Returns the first match (plain name preferred for determinism).
+fn find_phase_doc(phase_dir: &Path, doc_name: &str) -> Option<std::path::PathBuf> {
+    // Plain `NAME.md` preferred for determinism (legacy layout).
+    let plain = phase_dir.join(format!("{doc_name}.md"));
+    if plain.exists() {
+        return Some(plain);
+    }
+    // gsd-core@next `{NN}-NAME.md` (and legacy `{NN}-{MM}-NAME.md`): scan for a prefixed match.
+    let re = Regex::new(&format!(r"^\d+(-\d+)?-{doc_name}\.md$")).ok()?;
+    let mut matches: Vec<std::path::PathBuf> = fs::read_dir(phase_dir)
+        .ok()?
+        .filter_map(|e| e.ok())
+        .filter(|e| re.is_match(&e.file_name().to_string_lossy()))
+        .map(|e| e.path())
+        .collect();
+    matches.sort();
+    matches.into_iter().next()
+}
+
 fn parse_plan_file(content: &str, path: &Path, phase_num: i32, plan_num: i32) -> GsdPlan {
     let (frontmatter, body) = parse_frontmatter(content);
 
+    // D-04: log any unrecognized PLAN.md frontmatter fields (never hard-fail)
+    warn_unknown_fields(&frontmatter, KNOWN_PLAN_KEYS, "PLAN.md");
+
     let plan_type = frontmatter.get("type").cloned();
-    let group_number = frontmatter.get("group_number")
+    let group_number = frontmatter
+        .get("group_number")
         .and_then(|v| v.parse::<i32>().ok());
     let autonomous = frontmatter
         .get("autonomous")
         .map_or(true, |v| v == "true" || v == "yes" || v == "1");
+
+    // SCHM-01: new next frontmatter fields
+    let wave = frontmatter.get("wave").and_then(|v| v.parse::<i32>().ok());
+    let depends_on = extract_yaml_list(content, "depends_on");
+    let requirements = extract_yaml_list(content, "requirements");
+    let user_setup = extract_yaml_list(content, "user_setup");
 
     // Extract files_modified from YAML list in frontmatter
     let files_modified = extract_yaml_list(content, "files_modified");
@@ -1713,6 +1814,29 @@ fn parse_plan_file(content: &str, path: &Path, phase_num: i32, plan_num: i32) ->
         }
     }
 
+    // gsd-core@next: plans express steps as a numbered list under `## Method`
+    // (or `## Steps` / `## Tasks` / `## Approach`), not <task> blocks.
+    if tasks.is_empty() {
+        if let Some(step_re) = Regex::new(r"(?m)^\s*\d+\.\s+(.+?)\s*$").ok() {
+            for section in ["Method", "Steps", "Tasks", "Approach"] {
+                if let Some(body_section) = extract_section(&body, section) {
+                    for cap in step_re.captures_iter(&body_section) {
+                        if let Some(name) = cap.get(1) {
+                            tasks.push(GsdPlanTask {
+                                name: name.as_str().trim().to_string(),
+                                task_type: None,
+                                files: vec![],
+                            });
+                        }
+                    }
+                    if !tasks.is_empty() {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     let task_count = tasks.len() as i32;
 
     GsdPlan {
@@ -1726,11 +1850,19 @@ fn parse_plan_file(content: &str, path: &Path, phase_num: i32, plan_num: i32) ->
         tasks,
         files_modified,
         source_file: path.to_string_lossy().to_string(),
+        // SCHM-01: new next frontmatter fields
+        wave,
+        depends_on,
+        requirements,
+        user_setup,
     }
 }
 
 fn parse_summary_file(content: &str, path: &Path, phase_num: i32, plan_num: i32) -> GsdSummary {
     let (frontmatter, body) = parse_frontmatter(content);
+
+    // D-04: log any unrecognized SUMMARY.md frontmatter fields (never hard-fail)
+    warn_unknown_fields(&frontmatter, KNOWN_SUMMARY_KEYS, "SUMMARY.md");
 
     let tags: Vec<String> = frontmatter
         .get("tags")
@@ -1821,6 +1953,15 @@ fn parse_summary_file(content: &str, path: &Path, phase_num: i32, plan_num: i32)
         .or_else(|| extract_section(&body, "self check"))
         .or_else(|| extract_section(&body, "verification"));
 
+    // SCHM-01: new next frontmatter fields for dependency graph + requirements tracking
+    let status = frontmatter.get("status").cloned();
+    let requirements_completed = extract_yaml_list(content, "requirements-completed");
+    let provides = extract_yaml_list(content, "provides");
+    let affects = extract_yaml_list(content, "affects");
+    let patterns_established = extract_yaml_list(content, "patterns-established");
+    // requires: may contain nested {phase, provides} maps — extract top-level list items as strings
+    let requires = extract_yaml_list(content, "requires");
+
     GsdSummary {
         phase_number: phase_num,
         plan_number: plan_num,
@@ -1835,75 +1976,14 @@ fn parse_summary_file(content: &str, path: &Path, phase_num: i32, plan_num: i32)
         deviations,
         self_check,
         source_file: path.to_string_lossy().to_string(),
+        // SCHM-01: new next fields
+        status,
+        requirements_completed,
+        requires,
+        provides,
+        affects,
+        patterns_established,
     }
-}
-
-/// Extract a YAML list from content (handles both inline [a, b] and multiline - a\n- b)
-fn extract_yaml_list(content: &str, key: &str) -> Vec<String> {
-    let mut result = Vec::new();
-    let mut in_list = false;
-
-    for line in content.lines() {
-        let trimmed = line.trim();
-
-        // Check for key: [inline, list]
-        if trimmed.starts_with(&format!("{}:", key))
-            || trimmed.starts_with(&format!("{}:", key.replace('_', "-")))
-        {
-            let after_colon = trimmed.splitn(2, ':').nth(1).unwrap_or("").trim();
-            if after_colon.starts_with('[') && after_colon.ends_with(']') {
-                // Inline list
-                let inner = &after_colon[1..after_colon.len() - 1];
-                result.extend(
-                    inner
-                        .split(',')
-                        .map(|s| s.trim().trim_matches('"').trim_matches('\'').to_string())
-                        .filter(|s| !s.is_empty()),
-                );
-                return result;
-            } else if after_colon.is_empty() || after_colon == "[]" {
-                if after_colon == "[]" {
-                    return result;
-                }
-                in_list = true;
-                continue;
-            } else {
-                // Single value
-                result.push(after_colon.to_string());
-                return result;
-            }
-        }
-
-        if in_list {
-            if trimmed.starts_with("- ") {
-                result.push(
-                    trimmed[2..]
-                        .trim()
-                        .trim_matches('"')
-                        .trim_matches('\'')
-                        .to_string(),
-                );
-            } else if !trimmed.is_empty() && !trimmed.starts_with('#') {
-                break; // End of list
-            }
-        }
-    }
-
-    result
-}
-
-/// Extract content between XML-like tags: <tag>content</tag>
-fn extract_xml_tag(content: &str, tag: &str) -> Option<String> {
-    let open = format!("<{}>", tag);
-    let close = format!("</{}>", tag);
-
-    if let Some(start) = content.find(&open) {
-        let after = start + open.len();
-        if let Some(end) = content[after..].find(&close) {
-            return Some(content[after..after + end].trim().to_string());
-        }
-    }
-    None
 }
 
 fn parse_phase_research_file(content: &str, path: &Path, phase_num: i32) -> GsdPhaseResearch {
@@ -2072,7 +2152,8 @@ pub async fn gsd_list_plans(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let phases_dir = Path::new(&project_path).join(".planning").join("phases");
+    // Workstream-aware: phases/ lives under the active workstream subtree (SCHM-04)
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
 
     if !phases_dir.exists() {
         return Ok(vec![]);
@@ -2142,8 +2223,9 @@ pub async fn gsd_get_phase_plans(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let phases_dir = Path::new(&project_path).join(".planning").join("phases");
-    let phase_dir = find_phase_dir(&phases_dir, phase_number)?;
+    // Workstream-aware: phases/ lives under the active workstream subtree (SCHM-04)
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
+    let phase_dir = find_phase_dir(&phases_dir, &phase_number.to_string())?;
 
     let plan_num_re = Regex::new(r"^\d+-(\d+)-PLAN\.md$").unwrap();
     let mut plans = Vec::new();
@@ -2177,7 +2259,8 @@ pub async fn gsd_get_phase_plans(
 // ============================================================
 
 fn find_summary_files(phase_dir: &Path) -> Vec<std::path::PathBuf> {
-    let re = Regex::new(r"^\d+-\d+-SUMMARY\.md$").unwrap();
+    // Accept both legacy `{NN}-{MM}-SUMMARY.md` and gsd-core@next `{NN}-SUMMARY.md`.
+    let re = Regex::new(r"^\d+(-\d+)?-SUMMARY\.md$").unwrap();
     let mut files: Vec<std::path::PathBuf> = Vec::new();
 
     if let Ok(entries) = fs::read_dir(phase_dir) {
@@ -2214,7 +2297,8 @@ pub async fn gsd_list_summaries(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let phases_dir = Path::new(&project_path).join(".planning").join("phases");
+    // Workstream-aware: phases/ lives under the active workstream subtree (SCHM-04)
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
 
     if !phases_dir.exists() {
         return Ok(vec![]);
@@ -2285,8 +2369,9 @@ pub async fn gsd_get_phase_summaries(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let phases_dir = Path::new(&project_path).join(".planning").join("phases");
-    let phase_dir = find_phase_dir(&phases_dir, phase_number)?;
+    // Workstream-aware: phases/ lives under the active workstream subtree (SCHM-04)
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
+    let phase_dir = find_phase_dir(&phases_dir, &phase_number.to_string())?;
 
     let sum_num_re = Regex::new(r"^\d+-(\d+)-SUMMARY\.md$").unwrap();
     let mut summaries = Vec::new();
@@ -2340,7 +2425,8 @@ pub async fn gsd_list_phase_research(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let phases_dir = Path::new(&project_path).join(".planning").join("phases");
+    // Workstream-aware: phases/ lives under the active workstream subtree (SCHM-04)
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
 
     if !phases_dir.exists() {
         return Ok(vec![]);
@@ -2407,8 +2493,9 @@ pub async fn gsd_get_phase_research(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let phases_dir = Path::new(&project_path).join(".planning").join("phases");
-    let phase_dir = find_phase_dir(&phases_dir, phase_number)?;
+    // Workstream-aware: phases/ lives under the active workstream subtree (SCHM-04)
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
+    let phase_dir = find_phase_dir(&phases_dir, &phase_number.to_string())?;
 
     let research_re = Regex::new(r"^\d+-RESEARCH\.md$").unwrap();
 
@@ -3147,10 +3234,9 @@ fn parse_uat_file(content: &str, path: &Path, phase_number: &str) -> GsdUatResul
     // Parse ## Test Results table rows
     let mut tests: Vec<UatTestResult> = Vec::new();
     if let Some(table_section) = extract_section(content, "test results") {
-        let row_re = Regex::new(
-            r"^\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.*?)\s*\|",
-        )
-        .ok();
+        let row_re =
+            Regex::new(r"^\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.*?)\s*\|")
+                .ok();
         for line in table_section.lines() {
             let trimmed = line.trim();
             if !trimmed.starts_with('|') || trimmed.contains("---") {
@@ -3180,8 +3266,7 @@ fn parse_uat_file(content: &str, path: &Path, phase_number: &str) -> GsdUatResul
                         || result_raw.to_lowercase().contains("pending")
                     {
                         "pending".to_string()
-                    } else if result_raw.contains('⏭')
-                        || result_raw.to_lowercase().contains("skip")
+                    } else if result_raw.contains('⏭') || result_raw.to_lowercase().contains("skip")
                     {
                         "skipped".to_string()
                     } else {
@@ -3210,8 +3295,8 @@ fn parse_uat_file(content: &str, path: &Path, phase_number: &str) -> GsdUatResul
 
     // Parse ## Issues Found
     let mut issues: Vec<UatIssue> = Vec::new();
-    let issues_section = extract_section(content, "issues found")
-        .or_else(|| extract_section(content, "issues"));
+    let issues_section =
+        extract_section(content, "issues found").or_else(|| extract_section(content, "issues"));
     if let Some(section) = issues_section {
         let issue_re = Regex::new(r"^\s*[-*]\s*\*\*\[(\w+)\]\*\*\s*(.+)$").ok();
         for line in section.lines() {
@@ -3222,8 +3307,7 @@ fn parse_uat_file(content: &str, path: &Path, phase_number: &str) -> GsdUatResul
             let mut pushed = false;
             if let Some(re) = &issue_re {
                 if let Some(caps) = re.captures(trimmed) {
-                    let sev_raw =
-                        caps.get(1).map_or("minor", |m| m.as_str()).to_lowercase();
+                    let sev_raw = caps.get(1).map_or("minor", |m| m.as_str()).to_lowercase();
                     let desc = caps.get(2).map_or("", |m| m.as_str()).trim().to_string();
                     let severity = match sev_raw.as_str() {
                         "blocker" | "critical" => "blocker".to_string(),
@@ -3232,7 +3316,10 @@ fn parse_uat_file(content: &str, path: &Path, phase_number: &str) -> GsdUatResul
                         _ => "minor".to_string(),
                     };
                     if !desc.is_empty() {
-                        issues.push(UatIssue { severity, description: desc });
+                        issues.push(UatIssue {
+                            severity,
+                            description: desc,
+                        });
                         pushed = true;
                     }
                 }
@@ -3759,6 +3846,345 @@ pub async fn gsd_get_validation_by_phase(
     }
 }
 
+// ============================================================
+// Phase 12 Artifact Readers (ARTF-01..04)
+// ============================================================
+
+/// Private helper: read one phase-level markdown doc. NEVER returns Err (D-06).
+/// Returns present=false with None fields when the file is absent.
+fn read_phase_doc(phase_dir: &Path, filename: &str, doc_type: &str) -> GsdPhaseDoc {
+    let path = phase_dir.join(filename);
+    if path.exists() {
+        match fs::read_to_string(&path) {
+            Ok(content) => GsdPhaseDoc {
+                doc_type: doc_type.to_string(),
+                present: true,
+                raw_content: Some(content),
+                source_file: Some(path.to_string_lossy().to_string()),
+            },
+            Err(_) => GsdPhaseDoc {
+                doc_type: doc_type.to_string(),
+                present: false,
+                raw_content: None,
+                source_file: None,
+            },
+        }
+    } else {
+        GsdPhaseDoc {
+            doc_type: doc_type.to_string(),
+            present: false,
+            raw_content: None,
+            source_file: None,
+        }
+    }
+}
+
+/// Private helper: iterate a codebase/ directory and return sorted GsdResearchDoc vec.
+/// Returns empty Vec when the directory is absent (ARTF-03 absent case). NEVER returns Err.
+fn list_codebase_docs(dir: &Path) -> Vec<GsdResearchDoc> {
+    if !dir.exists() {
+        return vec![];
+    }
+    let mut docs = Vec::new();
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map_or(false, |e| e == "md") {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    let filename = path
+                        .file_name()
+                        .map_or("unknown".to_string(), |f| f.to_string_lossy().to_string());
+                    let (frontmatter, body) = parse_frontmatter(&content);
+                    let title = frontmatter.get("title").cloned().or_else(|| {
+                        body.lines()
+                            .find(|l| l.starts_with('#'))
+                            .map(|l| l.trim_start_matches('#').trim().to_string())
+                    });
+                    docs.push(GsdResearchDoc {
+                        filename: filename.clone(),
+                        title,
+                        category: frontmatter.get("category").cloned(),
+                        content,
+                        source_file: path.to_string_lossy().to_string(),
+                    });
+                }
+            }
+        }
+    }
+    docs.sort_by(|a, b| a.filename.cmp(&b.filename));
+    docs
+}
+
+/// Private helper: read one project-level process doc. NEVER returns Err (D-06).
+/// Returns present=false with None fields when the file is absent (ARTF-04 absent case).
+fn read_process_doc(path: &Path, doc_type: &str) -> GsdProcessDoc {
+    if path.exists() {
+        match fs::read_to_string(path) {
+            Ok(content) => GsdProcessDoc {
+                doc_type: doc_type.to_string(),
+                present: true,
+                raw_content: Some(content),
+                source_file: Some(path.to_string_lossy().to_string()),
+            },
+            Err(_) => GsdProcessDoc {
+                doc_type: doc_type.to_string(),
+                present: false,
+                raw_content: None,
+                source_file: None,
+            },
+        }
+    } else {
+        GsdProcessDoc {
+            doc_type: doc_type.to_string(),
+            present: false,
+            raw_content: None,
+            source_file: None,
+        }
+    }
+}
+
+/// ARTF-01: Return SPEC.md, AI-SPEC.md, UI-SPEC.md for the given phase.
+/// Phase dir missing → empty docs vec. Never errors on absent files.
+#[tauri::command]
+pub async fn gsd_get_phase_spec(
+    db: tauri::State<'_, DbState>,
+    project_id: String,
+    phase_number: i32,
+) -> Result<GsdPhaseDocSet, String> {
+    // GSD-2 guard: reject gsd2 projects with explicit error
+    {
+        let reader = db.read().await;
+        let version: Option<String> = reader
+            .query_row(
+                "SELECT gsd_version FROM projects WHERE id = ?1",
+                params![&project_id],
+                |row| row.get(0),
+            )
+            .ok();
+        if version.as_deref() == Some("gsd2") {
+            return Err("This project uses GSD-2. Use gsd2_* commands instead.".to_string());
+        }
+    }
+    let db = db.write().await;
+    let project_path = get_project_path(&db, &project_id)?;
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
+
+    let phase_dir = match find_phase_dir(&phases_dir, &phase_number.to_string()) {
+        Ok(d) => d,
+        Err(_) => {
+            return Ok(GsdPhaseDocSet {
+                phase_number,
+                docs: vec![],
+            });
+        }
+    };
+
+    Ok(GsdPhaseDocSet {
+        phase_number,
+        docs: vec![
+            read_phase_doc(&phase_dir, "SPEC.md", "SPEC"),
+            read_phase_doc(&phase_dir, "AI-SPEC.md", "AI-SPEC"),
+            read_phase_doc(&phase_dir, "UI-SPEC.md", "UI-SPEC"),
+        ],
+    })
+}
+
+/// ARTF-02: Return SECURITY.md for the given phase. Present:false when absent, never errors.
+#[tauri::command]
+pub async fn gsd_get_phase_security(
+    db: tauri::State<'_, DbState>,
+    project_id: String,
+    phase_number: i32,
+) -> Result<GsdPhaseDoc, String> {
+    // GSD-2 guard: reject gsd2 projects with explicit error
+    {
+        let reader = db.read().await;
+        let version: Option<String> = reader
+            .query_row(
+                "SELECT gsd_version FROM projects WHERE id = ?1",
+                params![&project_id],
+                |row| row.get(0),
+            )
+            .ok();
+        if version.as_deref() == Some("gsd2") {
+            return Err("This project uses GSD-2. Use gsd2_* commands instead.".to_string());
+        }
+    }
+    let db = db.write().await;
+    let project_path = get_project_path(&db, &project_id)?;
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
+
+    let phase_dir = match find_phase_dir(&phases_dir, &phase_number.to_string()) {
+        Ok(d) => d,
+        Err(_) => {
+            return Ok(GsdPhaseDoc {
+                doc_type: "SECURITY".to_string(),
+                present: false,
+                raw_content: None,
+                source_file: None,
+            });
+        }
+    };
+
+    Ok(read_phase_doc(&phase_dir, "SECURITY.md", "SECURITY"))
+}
+
+/// ARTF-02: Return VALIDATION.md for the given phase. Named _validation_doc to avoid
+/// collision with gsd_get_validation_by_phase. Present:false when absent, never errors.
+#[tauri::command]
+pub async fn gsd_get_phase_validation_doc(
+    db: tauri::State<'_, DbState>,
+    project_id: String,
+    phase_number: i32,
+) -> Result<GsdPhaseDoc, String> {
+    // GSD-2 guard: reject gsd2 projects with explicit error
+    {
+        let reader = db.read().await;
+        let version: Option<String> = reader
+            .query_row(
+                "SELECT gsd_version FROM projects WHERE id = ?1",
+                params![&project_id],
+                |row| row.get(0),
+            )
+            .ok();
+        if version.as_deref() == Some("gsd2") {
+            return Err("This project uses GSD-2. Use gsd2_* commands instead.".to_string());
+        }
+    }
+    let db = db.write().await;
+    let project_path = get_project_path(&db, &project_id)?;
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
+
+    let phase_dir = match find_phase_dir(&phases_dir, &phase_number.to_string()) {
+        Ok(d) => d,
+        Err(_) => {
+            return Ok(GsdPhaseDoc {
+                doc_type: "VALIDATION".to_string(),
+                present: false,
+                raw_content: None,
+                source_file: None,
+            });
+        }
+    };
+
+    Ok(read_phase_doc(&phase_dir, "VALIDATION.md", "VALIDATION"))
+}
+
+/// ARTF-02: Return REVIEW.md for the given phase. Present:false when absent, never errors.
+#[tauri::command]
+pub async fn gsd_get_phase_review(
+    db: tauri::State<'_, DbState>,
+    project_id: String,
+    phase_number: i32,
+) -> Result<GsdPhaseDoc, String> {
+    // GSD-2 guard: reject gsd2 projects with explicit error
+    {
+        let reader = db.read().await;
+        let version: Option<String> = reader
+            .query_row(
+                "SELECT gsd_version FROM projects WHERE id = ?1",
+                params![&project_id],
+                |row| row.get(0),
+            )
+            .ok();
+        if version.as_deref() == Some("gsd2") {
+            return Err("This project uses GSD-2. Use gsd2_* commands instead.".to_string());
+        }
+    }
+    let db = db.write().await;
+    let project_path = get_project_path(&db, &project_id)?;
+    let phases_dir = resolve_gsd_path(&project_path, None, "phases");
+
+    let phase_dir = match find_phase_dir(&phases_dir, &phase_number.to_string()) {
+        Ok(d) => d,
+        Err(_) => {
+            return Ok(GsdPhaseDoc {
+                doc_type: "REVIEW".to_string(),
+                present: false,
+                raw_content: None,
+                source_file: None,
+            });
+        }
+    };
+
+    Ok(read_phase_doc(&phase_dir, "REVIEW.md", "REVIEW"))
+}
+
+/// ARTF-03: Return all *.md files from .planning/codebase/ as GsdResearchDoc vec.
+/// Codebase is a SHARED file area — uses plain path join, NOT resolve_gsd_path.
+/// Returns empty Vec when the directory is absent, never errors.
+#[tauri::command]
+pub async fn gsd_get_codebase_docs(
+    db: tauri::State<'_, DbState>,
+    project_id: String,
+) -> Result<Vec<GsdResearchDoc>, String> {
+    // GSD-2 guard: reject gsd2 projects with explicit error
+    {
+        let reader = db.read().await;
+        let version: Option<String> = reader
+            .query_row(
+                "SELECT gsd_version FROM projects WHERE id = ?1",
+                params![&project_id],
+                |row| row.get(0),
+            )
+            .ok();
+        if version.as_deref() == Some("gsd2") {
+            return Err("This project uses GSD-2. Use gsd2_* commands instead.".to_string());
+        }
+    }
+    let db = db.write().await;
+    let project_path = get_project_path(&db, &project_id)?;
+    // SHARED file area: always root .planning/codebase/, never workstream-scoped
+    let codebase_dir = Path::new(&project_path).join(".planning").join("codebase");
+    Ok(list_codebase_docs(&codebase_dir))
+}
+
+/// ARTF-04: Return all six project-level process docs (present or absent).
+/// Resolution via resolve_gsd_path for workstream awareness.
+/// Returns all six entries so the UI can render a consistent doc list.
+#[tauri::command]
+pub async fn gsd_get_process_docs(
+    db: tauri::State<'_, DbState>,
+    project_id: String,
+) -> Result<Vec<GsdProcessDoc>, String> {
+    // GSD-2 guard: reject gsd2 projects with explicit error
+    {
+        let reader = db.read().await;
+        let version: Option<String> = reader
+            .query_row(
+                "SELECT gsd_version FROM projects WHERE id = ?1",
+                params![&project_id],
+                |row| row.get(0),
+            )
+            .ok();
+        if version.as_deref() == Some("gsd2") {
+            return Err("This project uses GSD-2. Use gsd2_* commands instead.".to_string());
+        }
+    }
+    let db = db.write().await;
+    let project_path = get_project_path(&db, &project_id)?;
+
+    // Process docs that live at the workstream-scoped root of .planning/
+    let process_doc_specs: &[(&str, &str)] = &[
+        ("discussion-log", "discussion-log.md"),
+        ("retrospective", "RETROSPECTIVE.md"),
+        ("discovery", "DISCOVERY.md"),
+        ("dev-preferences", "dev-preferences.md"),
+        ("continue-here", "CONTINUE-HERE.md"),
+        ("milestone-archive", "milestone-archive.md"),
+    ];
+
+    let docs = process_doc_specs
+        .iter()
+        .map(|(doc_type, filename)| {
+            let path = resolve_gsd_path(&project_path, None, filename);
+            read_process_doc(&path, doc_type)
+        })
+        .collect();
+
+    Ok(docs)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3878,76 +4304,286 @@ mod tests {
     }
 
     #[test]
-    fn test_plan_summary_matching_real_project() {
-        // Test against a real GSD project if available
-        let project_path =
-            std::path::Path::new("/Users/jeremymcspadden/Github/groundcontrol/.planning/phases");
-        if !project_path.exists() {
-            return; // Skip if project not available
-        }
+    fn test_gsd_next_single_number_phase_artifacts() {
+        // gsd-core@next names phase artifacts with a single phase-number prefix and no
+        // per-phase plan sub-number: 13-PLAN.md / 13-SUMMARY.md / 13-CONTEXT.md /
+        // 13-VERIFICATION.md (vs legacy 13-01-PLAN.md and plain CONTEXT.md). The readers
+        // must discover BOTH shapes so gsd-core@next projects populate.
+        let tmp = std::env::temp_dir().join("gsd_test_next_single_number");
+        let phase_dir = tmp.join("phases").join("13-concern-sweep");
+        let _ = fs::remove_dir_all(&tmp);
+        fs::create_dir_all(&phase_dir).unwrap();
 
-        let num_re = Regex::new(r"^0*(\d+)").unwrap();
+        fs::write(
+            phase_dir.join("13-PLAN.md"),
+            "---\ntype: execute\n---\n<task type=\"code\"><name>X</name></task>",
+        )
+        .unwrap();
+        fs::write(
+            phase_dir.join("13-SUMMARY.md"),
+            "---\nphase: 13\n---\n## Done\n",
+        )
+        .unwrap();
+        fs::write(phase_dir.join("13-CONTEXT.md"), "## Decisions\n- chose X\n").unwrap();
+        fs::write(phase_dir.join("13-VERIFICATION.md"), "## Result\nPASS\n").unwrap();
+
+        assert_eq!(
+            find_plan_files(&phase_dir).len(),
+            1,
+            "should find 13-PLAN.md (single-number gsd-core@next naming)"
+        );
+        assert_eq!(
+            find_summary_files(&phase_dir).len(),
+            1,
+            "should find 13-SUMMARY.md"
+        );
+        assert!(
+            find_phase_doc(&phase_dir, "CONTEXT").is_some(),
+            "should find 13-CONTEXT.md"
+        );
+        assert!(
+            find_phase_doc(&phase_dir, "VERIFICATION").is_some(),
+            "should find 13-VERIFICATION.md"
+        );
+
+        // Backward compat: legacy two-number plans + plain doc names must STILL work.
+        let legacy = tmp.join("phases").join("14-legacy");
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("14-01-PLAN.md"), "---\n---\n").unwrap();
+        fs::write(legacy.join("CONTEXT.md"), "## Decisions\n").unwrap();
+        assert_eq!(
+            find_plan_files(&legacy).len(),
+            1,
+            "legacy 14-01-PLAN.md must still be found"
+        );
+        assert!(
+            find_phase_doc(&legacy, "CONTEXT").is_some(),
+            "legacy plain CONTEXT.md must still be found"
+        );
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_parse_requirements_gsd_next_bold_checkbox_format() {
+        // gsd-core@next: `- [ ] **QWIN-01** ⚡: desc` / `- [x] **METHOD-01**: desc`
+        // The ID is bold, prefixed by a checkbox, optionally followed by a ⚡ marker.
+        let content = "## v1 Requirements\n\n\
+### Method & Instrumentation\n\n\
+- [ ] **QWIN-01** ⚡: A quick-win backlog is produced\n\
+- [x] **METHOD-01**: The audit method is grounded in best practice\n";
+        let reqs = parse_requirements(content).unwrap();
+        assert_eq!(reqs.len(), 2, "should parse 2 requirements");
+        assert_eq!(
+            reqs[0].req_id, "QWIN-01",
+            "extract bold ID, not auto REQ-001"
+        );
+        assert_eq!(reqs[0].description, "A quick-win backlog is produced");
+        assert_eq!(reqs[1].req_id, "METHOD-01");
+        assert_eq!(reqs[1].status.as_deref(), Some("done"), "[x] => done");
+        assert!(reqs[1].category.as_deref().unwrap_or("").contains("Method"));
+    }
+
+    #[test]
+    fn test_parse_requirements_legacy_format_still_works() {
+        // Backward compat: `- REQ-001: desc [priority: high] [phase: 2]`
+        let content = "## Requirements\n- AUTH-1: Users can log in [priority: high] [phase: 2]\n";
+        let reqs = parse_requirements(content).unwrap();
+        assert_eq!(reqs.len(), 1);
+        assert_eq!(reqs[0].req_id, "AUTH-1");
+        assert_eq!(reqs[0].priority.as_deref(), Some("high"));
+        assert_eq!(reqs[0].phase.as_deref(), Some("2"));
+        assert_eq!(reqs[0].description, "Users can log in");
+    }
+
+    #[test]
+    fn test_parse_milestones_gsd_next_h3_format() {
+        // gsd-core@next ROADMAP puts milestones as `### Milestone N — Name` (H3) under a
+        // `## Phases` section, with `- [x] **Phase N: ...**` checkbox bullets — not H2 headings
+        // or `**vX.Y** — Phases A-B` summary bullets. The H2 sections (Overview/Phases/Phase
+        // Details) must NOT be mistaken for milestones.
+        let content = "# Roadmap: Test\n\n\
+## Overview\n\n\
+- **Milestone 1 — Foo:** narrative description, not a milestone row\n\n\
+## Phases\n\n\
+### Milestone 1 — Foo\n\n\
+- [x] **Phase 1: Alpha** - did alpha\n\
+- [x] **Phase 2: Beta** - did beta\n\n\
+### Milestone 2 — Bar\n\n\
+- [ ] **Phase 3: Gamma** - todo gamma\n\
+- [ ] **Phase 4: Delta** - todo delta\n\n\
+## Phase Details\n\n\
+### Phase 1: Alpha\n\
+**Goal**: x\n";
+
+        let ms = parse_milestones(content).unwrap();
+        assert_eq!(
+            ms.len(),
+            2,
+            "should find exactly 2 H3 milestones (not the H2 sections)"
+        );
+        assert!(
+            ms[0].name.contains("Foo"),
+            "milestone 0 name: {}",
+            ms[0].name
+        );
+        assert_eq!(ms[0].phase_start, Some(1));
+        assert_eq!(ms[0].phase_end, Some(2));
+        assert_eq!(
+            ms[0].status.as_deref(),
+            Some("completed"),
+            "all [x] => completed"
+        );
+        assert!(ms[1].name.contains("Bar"));
+        assert_eq!(ms[1].phase_start, Some(3));
+        assert_eq!(ms[1].phase_end, Some(4));
+        assert_ne!(
+            ms[1].status.as_deref(),
+            Some("completed"),
+            "[ ] => not completed"
+        );
+    }
+
+    #[test]
+    fn test_parse_milestones_legacy_bullet_format_still_works() {
+        // Backward compat: VCCA's own `- ✅ **v1.0 MVP** - Phases 1-4 (shipped ...)` format.
+        let content = "# Roadmap\n\n## Milestones\n\n\
+- ✅ **v1.0 MVP** - Phases 1-4 (shipped 2026-03-01)\n\
+- 🚧 **v1.1 Polish** - Phases 5-10 (in progress)\n";
+        let ms = parse_milestones(content).unwrap();
+        assert_eq!(ms.len(), 2, "legacy bullet milestones still parse");
+        assert_eq!(ms[0].phase_start, Some(1));
+        assert_eq!(ms[0].phase_end, Some(4));
+        assert_eq!(ms[0].status.as_deref(), Some("completed"));
+    }
+
+    #[test]
+    fn test_parse_plan_extracts_method_steps_when_no_task_blocks() {
+        // gsd-core@next plans carry no <task> blocks; the steps are a numbered list under
+        // `## Method` (the heading often has a parenthetical suffix). The parser must surface
+        // those as tasks so the Plans tab shows a non-zero task count.
+        let content = "---\nphase: 13\nplan: 13\n---\n\n# Phase 13 Plan\n\n## Objective\n\nProduce a thing.\n\n## Method (locked by 13-CONTEXT)\n\n1. Read the upstream evidence.\n2. Target via HOTSPOTS.\n3. Run the engine read-only.\n\n## Verification\n\n- criteria met\n";
+        let plan = parse_plan_file(content, Path::new("13-PLAN.md"), 13, 13);
+        assert_eq!(
+            plan.task_count, 3,
+            "should extract 3 numbered ## Method steps as tasks"
+        );
+        assert_eq!(plan.tasks[0].name, "Read the upstream evidence.");
+    }
+
+    #[test]
+    fn test_parse_plan_still_prefers_task_blocks() {
+        // Backward compat: legacy plans with <task> blocks must keep parsing those, not Method.
+        let content = "---\nphase: 1\nplan: 1\n---\n## Method\n\n1. should be ignored\n\n<task type=\"code\"><name>Real task</name></task>";
+        let plan = parse_plan_file(content, Path::new("01-01-PLAN.md"), 1, 1);
+        assert_eq!(plan.task_count, 1, "legacy <task> blocks take precedence");
+        assert_eq!(plan.tasks[0].name, "Real task");
+    }
+
+    #[test]
+    fn test_plan_summary_matching_fixture_project() {
+        // FIX-01 (D-07): replaced hardcoded developer-machine path with a fixture-based tempdir
+        // seeded from gsd-next fixtures. Verifies plan/summary matching logic in CI without any
+        // developer-specific path. The original intent (plan/summary matching) is preserved
+        // against a controlled fixture tree.
+        use std::io::Write;
+
+        let plan_content = include_str!("../../tests/fixtures/gsd-next/plan-standard.md");
+        let summary_content = include_str!("../../tests/fixtures/gsd-next/summary-full.md");
+
+        let tmp = std::env::temp_dir().join(format!(
+            "vcca_fix01_test_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let phase_dir = tmp.join("11-schema-fidelity-and-cleanup");
+        fs::create_dir_all(&phase_dir).unwrap();
+
+        // Write one PLAN (phase 11, plan 01) and one SUMMARY (phase 11, plan 01)
+        let plan_path = phase_dir.join("11-01-PLAN.md");
+        let summary_path = phase_dir.join("11-01-SUMMARY.md");
+        let mut f = fs::File::create(&plan_path).unwrap();
+        f.write_all(plan_content.as_bytes()).unwrap();
+        let mut f = fs::File::create(&summary_path).unwrap();
+        f.write_all(summary_content.as_bytes()).unwrap();
+
+        // Write a second PLAN (phase 11, plan 02) with NO matching summary
+        let plan2_content = "---\nphase: 11-schema-fidelity\nplan: 02\ntype: execute\nautonomous: true\n---\n<objective>Task 2</objective>\n";
+        let plan2_path = phase_dir.join("11-02-PLAN.md");
+        let mut f = fs::File::create(&plan2_path).unwrap();
+        f.write_all(plan2_content.as_bytes()).unwrap();
+
         let plan_num_re = Regex::new(r"^\d+-(\d+)-PLAN\.md$").unwrap();
         let sum_num_re = Regex::new(r"^\d+-(\d+)-SUMMARY\.md$").unwrap();
 
-        let mut total_plans = 0;
-        let mut total_summaries = 0;
-        let mut matched = 0;
+        let plan_files = find_plan_files(&phase_dir);
+        let summary_files = find_summary_files(&phase_dir);
+        assert_eq!(
+            plan_files.len(),
+            2,
+            "Should find 2 plan files in fixture phase dir"
+        );
+        assert_eq!(
+            summary_files.len(),
+            1,
+            "Should find 1 summary file in fixture phase dir"
+        );
 
-        if let Ok(entries) = fs::read_dir(project_path) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if !path.is_dir() {
-                    continue;
-                }
-                let dir_name = path.file_name().unwrap().to_string_lossy().to_string();
-                if let Some(caps) = num_re.captures(&dir_name) {
-                    let phase_num: i32 = caps.get(1).unwrap().as_str().parse().unwrap();
-
-                    let plans = find_plan_files(&path);
-                    let summaries = find_summary_files(&path);
-                    total_plans += plans.len();
-                    total_summaries += summaries.len();
-
-                    // Build summary keys
-                    let sum_keys: std::collections::HashSet<String> = summaries
-                        .iter()
-                        .map(|sp| {
-                            let fname = sp.file_name().unwrap().to_string_lossy().to_string();
-                            let pnum = sum_num_re
-                                .captures(&fname)
-                                .and_then(|c| c.get(1))
-                                .and_then(|m| m.as_str().parse::<i32>().ok())
-                                .unwrap_or(0);
-                            format!("{}-{}", phase_num, pnum)
-                        })
-                        .collect();
-
-                    // Check plan matches
-                    for pp in &plans {
-                        let fname = pp.file_name().unwrap().to_string_lossy().to_string();
-                        let pnum = plan_num_re
-                            .captures(&fname)
-                            .and_then(|c| c.get(1))
-                            .and_then(|m| m.as_str().parse::<i32>().ok())
-                            .unwrap_or(0);
-                        let key = format!("{}-{}", phase_num, pnum);
-                        if sum_keys.contains(&key) {
-                            matched += 1;
-                        }
-                    }
-                }
-            }
+        // Build plans
+        let mut plans = Vec::new();
+        for pp in &plan_files {
+            let fname = pp.file_name().unwrap().to_string_lossy().to_string();
+            let pnum = plan_num_re
+                .captures(&fname)
+                .and_then(|c| c.get(1))
+                .and_then(|m| m.as_str().parse::<i32>().ok())
+                .unwrap_or(0);
+            let content = fs::read_to_string(pp).unwrap();
+            plans.push(parse_plan_file(&content, pp, 11, pnum));
         }
 
-        assert!(total_plans > 0, "Should find plans in real project");
-        assert!(total_summaries > 0, "Should find summaries in real project");
-        assert!(matched > 0, "Some plans should match summaries");
-        assert_eq!(
-            matched, total_summaries,
-            "All summaries should match a plan: matched={}, summaries={}",
-            matched, total_summaries
+        // Build summary map
+        let mut summary_map: StdHashMap<String, GsdSummary> = StdHashMap::new();
+        for sp in &summary_files {
+            let fname = sp.file_name().unwrap().to_string_lossy().to_string();
+            let snum = sum_num_re
+                .captures(&fname)
+                .and_then(|c| c.get(1))
+                .and_then(|m| m.as_str().parse::<i32>().ok())
+                .unwrap_or(0);
+            let content = fs::read_to_string(sp).unwrap();
+            let s = parse_summary_file(&content, sp, 11, snum);
+            summary_map.insert(format!("{}-{}", s.phase_number, s.plan_number), s);
+        }
+
+        // Plan 01 should match the summary; plan 02 should not
+        let plan1 = plans
+            .iter()
+            .find(|p| p.plan_number == 1)
+            .expect("plan 01 must exist");
+        let plan2 = plans
+            .iter()
+            .find(|p| p.plan_number == 2)
+            .expect("plan 02 must exist");
+
+        assert!(
+            summary_map.contains_key(&format!("{}-{}", plan1.phase_number, plan1.plan_number)),
+            "Plan 01 should have a matching summary"
         );
+        assert!(
+            !summary_map.contains_key(&format!("{}-{}", plan2.phase_number, plan2.plan_number)),
+            "Plan 02 should NOT have a matching summary"
+        );
+
+        let completed = plans
+            .iter()
+            .filter(|p| summary_map.contains_key(&format!("{}-{}", p.phase_number, p.plan_number)))
+            .count();
+        assert_eq!(completed, 1, "Should count exactly 1 completed plan");
+
+        let _ = fs::remove_dir_all(&tmp);
     }
 
     #[test]
@@ -4045,6 +4681,186 @@ completed: 2026-02-01T12:00:00Z
         assert!(summary.accomplishments[0].contains("bundle analysis"));
         assert_eq!(summary.decisions.len(), 1, "Should find 1 decision");
     }
+
+    // ── SCHM-03: decimal-aware find_phase_dir test ──────────────────────────
+
+    #[test]
+    fn test_find_decimal_phase_dir() {
+        // SCHM-03: "2" and "2.1" must resolve to distinct directories without collision.
+        let tmp = std::env::temp_dir().join(format!(
+            "vcca_decimal_phase_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        // Create both integer and decimal phase dirs
+        let int_phase = tmp.join("02-normal-phase");
+        let dec_phase = tmp.join("02.1-hotfix");
+        fs::create_dir_all(&int_phase).unwrap();
+        fs::create_dir_all(&dec_phase).unwrap();
+
+        // "2" must resolve to "02-normal-phase", not "02.1-hotfix"
+        let found_int = find_phase_dir(&tmp, "2").unwrap();
+        assert_eq!(
+            found_int, int_phase,
+            "Phase '2' must resolve to '02-normal-phase', not '02.1-hotfix'"
+        );
+
+        // "2.1" must resolve to "02.1-hotfix", not "02-normal-phase"
+        let found_dec = find_phase_dir(&tmp, "2.1").unwrap();
+        assert_eq!(
+            found_dec, dec_phase,
+            "Phase '2.1' must resolve to '02.1-hotfix', not '02-normal-phase'"
+        );
+
+        // Integer call sites: i32 phases still work via .to_string()
+        let found_via_to_string = find_phase_dir(&tmp, &(2_i32).to_string()).unwrap();
+        assert_eq!(
+            found_via_to_string, int_phase,
+            "i32 phase 2 converted via .to_string() must still resolve correctly"
+        );
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    // ── Phase 12 artifact reader tests (ARTF-01..04) ────────────────────────
+
+    #[test]
+    fn test_read_phase_doc_present() {
+        // read_phase_doc on a phase dir containing the file returns present=true (ARTF-01/02)
+        let tmp = std::env::temp_dir().join(format!(
+            "vcca_phase_doc_present_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&tmp).unwrap();
+        let content = "# Phase Spec\nSome spec content here.";
+        fs::write(tmp.join("SPEC.md"), content).unwrap();
+
+        let doc = read_phase_doc(&tmp, "SPEC.md", "SPEC");
+        assert!(doc.present, "present must be true when file exists");
+        assert_eq!(doc.doc_type, "SPEC");
+        assert_eq!(doc.raw_content.as_deref(), Some(content));
+        assert!(
+            doc.source_file.is_some(),
+            "source_file must be Some when file exists"
+        );
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_read_phase_doc_absent() {
+        // read_phase_doc on a phase dir WITHOUT the file returns present=false (ARTF-01/02, D-06)
+        let tmp = std::env::temp_dir().join(format!(
+            "vcca_phase_doc_absent_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&tmp).unwrap();
+        // Do NOT write SPEC.md — test the absent case
+
+        let doc = read_phase_doc(&tmp, "SPEC.md", "SPEC");
+        assert!(!doc.present, "present must be false when file is absent");
+        assert_eq!(doc.doc_type, "SPEC");
+        assert!(
+            doc.raw_content.is_none(),
+            "raw_content must be None when absent"
+        );
+        assert!(
+            doc.source_file.is_none(),
+            "source_file must be None when absent"
+        );
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_codebase_docs_listing() {
+        // list_codebase_docs over a dir with two *.md files returns 2 docs sorted by filename (ARTF-03)
+        let tmp = std::env::temp_dir().join(format!(
+            "vcca_codebase_listing_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let codebase_dir = tmp.join(".planning").join("codebase");
+        fs::create_dir_all(&codebase_dir).unwrap();
+
+        fs::write(
+            codebase_dir.join("STACK.md"),
+            "---\ntitle: Tech Stack\ncategory: architecture\n---\n# Stack\nRust + React",
+        )
+        .unwrap();
+        fs::write(
+            codebase_dir.join("ARCHITECTURE.md"),
+            "---\ntitle: Architecture\ncategory: design\n---\n# Architecture\nOverview",
+        )
+        .unwrap();
+
+        let docs = list_codebase_docs(&codebase_dir);
+        assert_eq!(docs.len(), 2, "Should return 2 docs");
+        // Sorted by filename: ARCHITECTURE.md before STACK.md
+        assert_eq!(docs[0].filename, "ARCHITECTURE.md");
+        assert_eq!(docs[1].filename, "STACK.md");
+        assert_eq!(docs[0].title.as_deref(), Some("Architecture"));
+        assert_eq!(docs[0].category.as_deref(), Some("design"));
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_codebase_docs_missing_dir() {
+        // list_codebase_docs on a non-existent dir returns empty Vec (ARTF-03 absent case)
+        let nonexistent = std::path::Path::new("/tmp/vcca_this_does_not_exist_artf03");
+        let docs = list_codebase_docs(nonexistent);
+        assert!(
+            docs.is_empty(),
+            "Missing codebase dir must return empty Vec, not error"
+        );
+    }
+
+    #[test]
+    fn test_process_doc_present_and_absent() {
+        // read_process_doc returns present=true for existing file, present=false for missing (ARTF-04)
+        let tmp = std::env::temp_dir().join(format!(
+            "vcca_process_doc_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&tmp).unwrap();
+
+        let discussion_path = tmp.join("discussion-log.md");
+        fs::write(&discussion_path, "# Discussion Log\nSome entries here.").unwrap();
+
+        // Present case
+        let doc_present = read_process_doc(&discussion_path, "discussion-log");
+        assert!(doc_present.present, "present must be true when file exists");
+        assert_eq!(doc_present.doc_type, "discussion-log");
+        assert!(doc_present.raw_content.is_some());
+        assert!(doc_present.source_file.is_some());
+
+        // Absent case
+        let missing_path = tmp.join("RETROSPECTIVE.md");
+        let doc_absent = read_process_doc(&missing_path, "retrospective");
+        assert!(
+            !doc_absent.present,
+            "present must be false when file is absent"
+        );
+        assert_eq!(doc_absent.doc_type, "retrospective");
+        assert!(doc_absent.raw_content.is_none());
+        assert!(doc_absent.source_file.is_none());
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
 }
 
 // ============================================================
@@ -4100,9 +4916,8 @@ pub async fn gsd_get_roadmap_progress(
     }
     let db = db.write().await;
     let project_path = get_project_path(&db, &project_id)?;
-    let roadmap_path = Path::new(&project_path)
-        .join(".planning")
-        .join("ROADMAP.md");
+    // Workstream-aware: ROADMAP.md lives under the active workstream subtree (SCHM-04)
+    let roadmap_path = resolve_gsd_path(&project_path, None, "ROADMAP.md");
 
     if !roadmap_path.exists() {
         return Ok(None);

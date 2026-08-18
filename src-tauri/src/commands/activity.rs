@@ -13,7 +13,7 @@ pub async fn get_activity_log(
     limit: Option<i32>,
 ) -> Result<Vec<ActivityEntry>, String> {
     let conn = db.read().await;
-    
+
     let limit = limit.unwrap_or(50);
 
     let (sql, params): (&str, Vec<Box<dyn rusqlite::ToSql>>) = if let Some(ref pid) = project_id {
@@ -71,7 +71,6 @@ pub async fn search_activity(
     project_id: Option<String>,
 ) -> Result<Vec<ActivityEntry>, String> {
     let conn = db.read().await;
-    
 
     let search_pattern = format!("%{}%", query);
 

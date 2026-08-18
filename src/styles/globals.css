@@ -257,6 +257,33 @@
   outline-offset: 2px;
 }
 
+/* Pointer cursor on interactive/actionable elements.
+   Tailwind 3 + shadcn/ui do not set cursor: pointer on buttons by default,
+   so clickable controls show the default arrow. Restore the finger pointer
+   for interactive elements. Placed OUTSIDE @layer (so utilities can't outrank
+   it) and marked !important — cursor is presentational, so this is safe and
+   guarantees the override regardless of cascade layer or component classes.
+   Disabled controls are excluded so they keep the default/not-allowed cursor. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"]:not([aria-disabled="true"]),
+[role="menuitem"],
+[role="menuitemcheckbox"],
+[role="menuitemradio"],
+[role="option"],
+[role="switch"],
+[role="radio"],
+[role="checkbox"]:not([aria-disabled="true"]),
+[role="link"],
+[data-slot="trigger"],
+a[href],
+label[for],
+summary,
+select:not(:disabled),
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
 /* Skip link for accessibility */
 .sr-only.focus\\:not-sr-only:focus {
   position: absolute;

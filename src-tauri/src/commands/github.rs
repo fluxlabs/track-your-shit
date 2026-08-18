@@ -153,7 +153,7 @@ fn github_token() -> Option<String> {
             return Some(token);
         }
     }
-    
+
     // Fall back to environment variable
     std::env::var("GITHUB_TOKEN").ok()
 }
@@ -165,14 +165,14 @@ fn parse_github_owner_repo(project_path: &str) -> Result<(String, String), Strin
         .current_dir(project_path)
         .output()
         .map_err(|e| format!("Failed to get git remote URL: {}", e))?;
-    
+
     if !output.status.success() {
         return Err("No git remote found".to_string());
     }
-    
+
     let url_lossy = String::from_utf8_lossy(&output.stdout);
     let url = url_lossy.trim();
-    
+
     // Parse https://github.com/owner/repo or git@github.com:owner/repo
     let (owner, repo) = if url.starts_with("https://github.com/") {
         let path = url.strip_prefix("https://github.com/").unwrap();
@@ -193,7 +193,7 @@ fn parse_github_owner_repo(project_path: &str) -> Result<(String, String), Strin
     } else {
         return Err("No GitHub remote found".to_string());
     };
-    
+
     Ok((owner, repo))
 }
 
@@ -203,11 +203,14 @@ fn github_request(token: Option<&str>, url: &str) -> Result<reqwest::RequestBuil
         .timeout(Duration::from_secs(15))
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
-    
+
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static("gsd-vibe/1.0"));
-    headers.insert("Accept", HeaderValue::from_static("application/vnd.github.v3+json"));
-    
+    headers.insert(
+        "Accept",
+        HeaderValue::from_static("application/vnd.github.v3+json"),
+    );
+
     if let Some(token) = token {
         let auth_value = format!("Bearer {}", token);
         headers.insert(
@@ -216,7 +219,7 @@ fn github_request(token: Option<&str>, url: &str) -> Result<reqwest::RequestBuil
                 .map_err(|e| format!("Invalid token format: {}", e))?,
         );
     }
-    
+
     Ok(client.get(url).headers(headers))
 }
 
@@ -236,28 +239,31 @@ pub async fn github_get_token_status() -> Result<GitHubTokenStatus, String> {
 pub async fn github_get_repo_info(project_path: String) -> Result<GitHubRepoInfo, String> {
     let (owner, repo) = parse_github_owner_repo(&project_path)?;
     let token = github_token();
-    
+
     let url = format!("https://api.github.com/repos/{}/{}", owner, repo);
     let resp = github_request(token.as_deref(), &url)?
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
-    
+
     if !resp.status().is_success() {
         return Err(format!("GitHub API error: {}", resp.status()));
     }
-    
+
     let data: serde_json::Value = resp
         .json()
         .await
         .map_err(|e| format!("JSON parse failed: {}", e))?;
-    
+
     Ok(GitHubRepoInfo {
         name: data["name"].as_str().unwrap_or("").to_string(),
         full_name: data["full_name"].as_str().unwrap_or("").to_string(),
         description: data["description"].as_str().map(|s| s.to_string()),
         private: data["private"].as_bool().unwrap_or(false),
-        default_branch: data["default_branch"].as_str().unwrap_or("main").to_string(),
+        default_branch: data["default_branch"]
+            .as_str()
+            .unwrap_or("main")
+            .to_string(),
         open_issues_count: data["open_issues_count"].as_u64().unwrap_or(0) as u32,
         stargazers_count: data["stargazers_count"].as_u64().unwrap_or(0) as u32,
         forks_count: data["forks_count"].as_u64().unwrap_or(0) as u32,
@@ -277,30 +283,30 @@ pub async fn github_list_prs(
     let (owner, repo) = parse_github_owner_repo(&project_path)?;
     let token = github_token();
     let pr_state = state.unwrap_or_else(|| "open".to_string());
-    
+
     let url = format!(
         "https://api.github.com/repos/{}/{}/pulls?state={}&per_page=50",
         owner, repo, pr_state
     );
-    
+
     let resp = github_request(token.as_deref(), &url)?
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
-    
+
     if !resp.status().is_success() {
         return Err(format!("GitHub API error: {}", resp.status()));
     }
-    
+
     let data: serde_json::Value = resp
         .json()
         .await
         .map_err(|e| format!("JSON parse failed: {}", e))?;
-    
+
     let empty_vec = vec![];
     let prs = data.as_array().unwrap_or(&empty_vec);
     let mut result = Vec::new();
-    
+
     for pr in prs {
         let labels = pr["labels"]
             .as_array()
@@ -313,7 +319,7 @@ pub async fn github_list_prs(
                 description: l["description"].as_str().map(|s| s.to_string()),
             })
             .collect();
-        
+
         let assignees = pr["assignees"]
             .as_array()
             .unwrap_or(&vec![])
@@ -324,7 +330,7 @@ pub async fn github_list_prs(
                 html_url: a["html_url"].as_str().unwrap_or("").to_string(),
             })
             .collect();
-        
+
         result.push(GitHubPR {
             number: pr["number"].as_u64().unwrap_or(0),
             title: pr["title"].as_str().unwrap_or("").to_string(),
@@ -349,7 +355,7 @@ pub async fn github_list_prs(
             review_comments: pr["review_comments"].as_u64().unwrap_or(0) as u32,
         });
     }
-    
+
     Ok(result)
 }
 
@@ -365,34 +371,34 @@ pub async fn github_create_pr(
 ) -> Result<GitHubPR, String> {
     let (owner, repo) = parse_github_owner_repo(&project_path)?;
     let token = github_token().ok_or("GitHub token required")?;
-    
+
     let url = format!("https://api.github.com/repos/{}/{}/pulls", owner, repo);
-    
+
     let mut payload = HashMap::new();
     payload.insert("title", serde_json::Value::String(title));
     payload.insert("body", serde_json::Value::String(body));
     payload.insert("head", serde_json::Value::String(head));
     payload.insert("base", serde_json::Value::String(base));
     payload.insert("draft", serde_json::Value::Bool(draft));
-    
+
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
-    
+
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static("gsd-vibe/1.0"));
-    headers.insert("Accept", HeaderValue::from_static("application/vnd.github.v3+json"));
+    headers.insert(
+        "Accept",
+        HeaderValue::from_static("application/vnd.github.v3+json"),
+    );
     headers.insert(
         "Authorization",
         HeaderValue::from_str(&format!("Bearer {}", token))
             .map_err(|e| format!("Invalid token format: {}", e))?,
     );
-    headers.insert(
-        "Content-Type",
-        HeaderValue::from_static("application/json"),
-    );
-    
+    headers.insert("Content-Type", HeaderValue::from_static("application/json"));
+
     let resp = client
         .post(&url)
         .headers(headers)
@@ -400,17 +406,20 @@ pub async fn github_create_pr(
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
-    
+
     if !resp.status().is_success() {
-        let error_text = resp.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+        let error_text = resp
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
         return Err(format!("GitHub API error: {}", error_text));
     }
-    
+
     let data: serde_json::Value = resp
         .json()
         .await
         .map_err(|e| format!("JSON parse failed: {}", e))?;
-    
+
     // Parse the created PR response (same structure as list_prs)
     let labels = data["labels"]
         .as_array()
@@ -423,7 +432,7 @@ pub async fn github_create_pr(
             description: l["description"].as_str().map(|s| s.to_string()),
         })
         .collect();
-    
+
     let assignees = data["assignees"]
         .as_array()
         .unwrap_or(&vec![])
@@ -434,7 +443,7 @@ pub async fn github_create_pr(
             html_url: a["html_url"].as_str().unwrap_or("").to_string(),
         })
         .collect();
-    
+
     Ok(GitHubPR {
         number: data["number"].as_u64().unwrap_or(0),
         title: data["title"].as_str().unwrap_or("").to_string(),
@@ -468,30 +477,30 @@ pub async fn github_get_pr_reviews(
 ) -> Result<Vec<GitHubReview>, String> {
     let (owner, repo) = parse_github_owner_repo(&project_path)?;
     let token = github_token();
-    
+
     let url = format!(
         "https://api.github.com/repos/{}/{}/pulls/{}/reviews",
         owner, repo, pr_number
     );
-    
+
     let resp = github_request(token.as_deref(), &url)?
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
-    
+
     if !resp.status().is_success() {
         return Err(format!("GitHub API error: {}", resp.status()));
     }
-    
+
     let data: serde_json::Value = resp
         .json()
         .await
         .map_err(|e| format!("JSON parse failed: {}", e))?;
-    
+
     let empty_vec = vec![];
     let reviews = data.as_array().unwrap_or(&empty_vec);
     let mut result = Vec::new();
-    
+
     for review in reviews {
         result.push(GitHubReview {
             id: review["id"].as_u64().unwrap_or(0),
@@ -502,7 +511,7 @@ pub async fn github_get_pr_reviews(
             html_url: review["html_url"].as_str().unwrap_or("").to_string(),
         });
     }
-    
+
     Ok(result)
 }
 
@@ -516,40 +525,40 @@ pub async fn github_list_issues(
     let (owner, repo) = parse_github_owner_repo(&project_path)?;
     let token = github_token();
     let issue_state = state.unwrap_or_else(|| "open".to_string());
-    
+
     let mut url = format!(
         "https://api.github.com/repos/{}/{}/issues?state={}&per_page=50",
         owner, repo, issue_state
     );
-    
+
     if let Some(label_filter) = labels {
         url.push_str(&format!("&labels={}", label_filter));
     }
-    
+
     let resp = github_request(token.as_deref(), &url)?
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
-    
+
     if !resp.status().is_success() {
         return Err(format!("GitHub API error: {}", resp.status()));
     }
-    
+
     let data: serde_json::Value = resp
         .json()
         .await
         .map_err(|e| format!("JSON parse failed: {}", e))?;
-    
+
     let empty_vec = vec![];
     let issues = data.as_array().unwrap_or(&empty_vec);
     let mut result = Vec::new();
-    
+
     for issue in issues {
         // Skip PRs (issues endpoint returns both issues and PRs)
         if issue["pull_request"].is_object() {
             continue;
         }
-        
+
         let issue_labels = issue["labels"]
             .as_array()
             .unwrap_or(&vec![])
@@ -561,7 +570,7 @@ pub async fn github_list_issues(
                 description: l["description"].as_str().map(|s| s.to_string()),
             })
             .collect();
-        
+
         let issue_assignees = issue["assignees"]
             .as_array()
             .unwrap_or(&vec![])
@@ -572,7 +581,7 @@ pub async fn github_list_issues(
                 html_url: a["html_url"].as_str().unwrap_or("").to_string(),
             })
             .collect();
-        
+
         result.push(GitHubIssue {
             number: issue["number"].as_u64().unwrap_or(0),
             title: issue["title"].as_str().unwrap_or("").to_string(),
@@ -589,7 +598,7 @@ pub async fn github_list_issues(
             milestone_title: issue["milestone"]["title"].as_str().map(|s| s.to_string()),
         });
     }
-    
+
     Ok(result)
 }
 
@@ -604,45 +613,50 @@ pub async fn github_create_issue(
 ) -> Result<GitHubIssue, String> {
     let (owner, repo) = parse_github_owner_repo(&project_path)?;
     let token = github_token().ok_or("GitHub token required")?;
-    
+
     let url = format!("https://api.github.com/repos/{}/{}/issues", owner, repo);
-    
+
     let mut payload = HashMap::new();
     payload.insert("title", serde_json::Value::String(title));
     payload.insert("body", serde_json::Value::String(body));
-    
+
     if !labels.is_empty() {
         payload.insert(
             "labels",
             serde_json::Value::Array(labels.into_iter().map(serde_json::Value::String).collect()),
         );
     }
-    
+
     if !assignees.is_empty() {
         payload.insert(
             "assignees",
-            serde_json::Value::Array(assignees.into_iter().map(serde_json::Value::String).collect()),
+            serde_json::Value::Array(
+                assignees
+                    .into_iter()
+                    .map(serde_json::Value::String)
+                    .collect(),
+            ),
         );
     }
-    
+
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
-    
+
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static("gsd-vibe/1.0"));
-    headers.insert("Accept", HeaderValue::from_static("application/vnd.github.v3+json"));
+    headers.insert(
+        "Accept",
+        HeaderValue::from_static("application/vnd.github.v3+json"),
+    );
     headers.insert(
         "Authorization",
         HeaderValue::from_str(&format!("Bearer {}", token))
             .map_err(|e| format!("Invalid token format: {}", e))?,
     );
-    headers.insert(
-        "Content-Type",
-        HeaderValue::from_static("application/json"),
-    );
-    
+    headers.insert("Content-Type", HeaderValue::from_static("application/json"));
+
     let resp = client
         .post(&url)
         .headers(headers)
@@ -650,17 +664,20 @@ pub async fn github_create_issue(
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
-    
+
     if !resp.status().is_success() {
-        let error_text = resp.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+        let error_text = resp
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
         return Err(format!("GitHub API error: {}", error_text));
     }
-    
+
     let data: serde_json::Value = resp
         .json()
         .await
         .map_err(|e| format!("JSON parse failed: {}", e))?;
-    
+
     // Parse the created issue response
     let issue_labels = data["labels"]
         .as_array()
@@ -673,7 +690,7 @@ pub async fn github_create_issue(
             description: l["description"].as_str().map(|s| s.to_string()),
         })
         .collect();
-    
+
     let issue_assignees = data["assignees"]
         .as_array()
         .unwrap_or(&vec![])
@@ -684,7 +701,7 @@ pub async fn github_create_issue(
             html_url: a["html_url"].as_str().unwrap_or("").to_string(),
         })
         .collect();
-    
+
     Ok(GitHubIssue {
         number: data["number"].as_u64().unwrap_or(0),
         title: data["title"].as_str().unwrap_or("").to_string(),
@@ -710,30 +727,30 @@ pub async fn github_list_check_runs(
 ) -> Result<Vec<GitHubCheckRun>, String> {
     let (owner, repo) = parse_github_owner_repo(&project_path)?;
     let token = github_token();
-    
+
     let url = format!(
         "https://api.github.com/repos/{}/{}/commits/{}/check-runs",
         owner, repo, git_ref
     );
-    
+
     let resp = github_request(token.as_deref(), &url)?
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
-    
+
     if !resp.status().is_success() {
         return Err(format!("GitHub API error: {}", resp.status()));
     }
-    
+
     let data: serde_json::Value = resp
         .json()
         .await
         .map_err(|e| format!("JSON parse failed: {}", e))?;
-    
+
     let empty_vec = vec![];
     let check_runs = data["check_runs"].as_array().unwrap_or(&empty_vec);
     let mut result = Vec::new();
-    
+
     for check in check_runs {
         result.push(GitHubCheckRun {
             id: check["id"].as_u64().unwrap_or(0),
@@ -746,7 +763,7 @@ pub async fn github_list_check_runs(
             app_name: check["app"]["name"].as_str().unwrap_or("").to_string(),
         });
     }
-    
+
     Ok(result)
 }
 
@@ -755,36 +772,36 @@ pub async fn github_list_check_runs(
 pub async fn github_list_releases(project_path: String) -> Result<Vec<GitHubRelease>, String> {
     let (owner, repo) = parse_github_owner_repo(&project_path)?;
     let token = github_token();
-    
+
     let url = format!(
         "https://api.github.com/repos/{}/{}/releases?per_page=20",
         owner, repo
     );
-    
+
     let resp = github_request(token.as_deref(), &url)?
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
-    
+
     if !resp.status().is_success() {
         return Err(format!("GitHub API error: {}", resp.status()));
     }
-    
+
     let data: serde_json::Value = resp
         .json()
         .await
         .map_err(|e| format!("JSON parse failed: {}", e))?;
-    
+
     let empty_vec = vec![];
     let releases = data.as_array().unwrap_or(&empty_vec);
     let mut result = Vec::new();
-    
+
     for release in releases {
         let assets_count = release["assets"]
             .as_array()
             .map(|arr| arr.len())
             .unwrap_or(0);
-        
+
         result.push(GitHubRelease {
             id: release["id"].as_u64().unwrap_or(0),
             tag_name: release["tag_name"].as_str().unwrap_or("").to_string(),
@@ -800,7 +817,7 @@ pub async fn github_list_releases(project_path: String) -> Result<Vec<GitHubRele
             assets_count,
         });
     }
-    
+
     Ok(result)
 }
 
@@ -814,39 +831,48 @@ pub async fn github_list_repo_notifications(
         Some(t) => t,
         None => return Ok(vec![]), // Return empty if no token configured
     };
-    
+
     let full_name = format!("{}/{}", owner, repo);
     let url = format!(
         "https://api.github.com/notifications?repository={}",
         full_name.replace("/", "%2F")
     );
-    
+
     let resp = github_request(Some(&token), &url)?
         .send()
         .await
         .map_err(|e| format!("Request failed: {}", e))?;
-    
+
     if !resp.status().is_success() {
         return Err(format!("GitHub API error: {}", resp.status()));
     }
-    
+
     let data: serde_json::Value = resp
         .json()
         .await
         .map_err(|e| format!("JSON parse failed: {}", e))?;
-    
+
     let empty_vec = vec![];
     let notifications = data.as_array().unwrap_or(&empty_vec);
     let mut result = Vec::new();
-    
+
     for notification in notifications {
         result.push(GitHubNotification {
             id: notification["id"].as_str().unwrap_or("").to_string(),
             reason: notification["reason"].as_str().unwrap_or("").to_string(),
             unread: notification["unread"].as_bool().unwrap_or(false),
-            title: notification["subject"]["title"].as_str().unwrap_or("").to_string(),
-            type_: notification["subject"]["type"].as_str().unwrap_or("").to_string(),
-            updated_at: notification["updated_at"].as_str().unwrap_or("").to_string(),
+            title: notification["subject"]["title"]
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
+            type_: notification["subject"]["type"]
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
+            updated_at: notification["updated_at"]
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
             html_url: notification["subject"]["url"].as_str().map(|s| {
                 // Convert API URL to web URL
                 s.replace("api.github.com/repos", "github.com")
@@ -855,7 +881,7 @@ pub async fn github_list_repo_notifications(
             }),
         });
     }
-    
+
     Ok(result)
 }
 /// Import the GitHub token from the `gh` CLI (`gh auth token`).
@@ -865,11 +891,17 @@ pub async fn github_import_gh_token() -> Result<String, String> {
     let output = std::process::Command::new("gh")
         .args(["auth", "token"])
         .output()
-        .map_err(|_| "gh CLI not found — install GitHub CLI (brew install gh) and run `gh auth login`".to_string())?;
+        .map_err(|_| {
+            "gh CLI not found — install GitHub CLI (brew install gh) and run `gh auth login`"
+                .to_string()
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("gh auth token failed: {}. Run `gh auth login` first.", stderr.trim()));
+        return Err(format!(
+            "gh auth token failed: {}. Run `gh auth login` first.",
+            stderr.trim()
+        ));
     }
 
     let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -894,7 +926,9 @@ pub async fn github_import_gh_token() -> Result<String, String> {
             .ok()
             .and_then(|v| {
                 v["keys"].as_array().map(|arr| {
-                    arr.iter().filter_map(|k| k.as_str().map(|s| s.to_string())).collect()
+                    arr.iter()
+                        .filter_map(|k| k.as_str().map(|s| s.to_string()))
+                        .collect()
                 })
             })
             .unwrap_or_default(),
@@ -935,7 +969,9 @@ pub async fn github_save_token(token: String) -> Result<(), String> {
             .ok()
             .and_then(|v| {
                 v["keys"].as_array().map(|arr| {
-                    arr.iter().filter_map(|k| k.as_str().map(|s| s.to_string())).collect()
+                    arr.iter()
+                        .filter_map(|k| k.as_str().map(|s| s.to_string()))
+                        .collect()
                 })
             })
             .unwrap_or_default(),

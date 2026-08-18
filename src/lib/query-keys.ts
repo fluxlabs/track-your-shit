@@ -110,6 +110,13 @@ export const queryKeys = {
   gsdRoadmapProgress: (projectId: string) => ['gsd', projectId, 'roadmap-progress'] as const,
   allTodos: () => ['gsd', 'all-todos'] as const,
   gsdPhaseContext: (projectId: string, phase: number) => ["gsd", "phase-context", projectId, phase] as const,
+  // Phase 12 artifact reader keys (ARTF-01..04)
+  gsdPhaseSpec: (projectId: string, phase: number) => ["gsd", "phase-spec", projectId, phase] as const,
+  gsdPhaseSecurity: (projectId: string, phase: number) => ["gsd", "phase-security", projectId, phase] as const,
+  gsdPhaseValidationDoc: (projectId: string, phase: number) => ["gsd", "phase-validation-doc", projectId, phase] as const,
+  gsdPhaseReview: (projectId: string, phase: number) => ["gsd", "phase-review", projectId, phase] as const,
+  gsdCodebaseDocs: (projectId: string) => ["gsd", "codebase-docs", projectId] as const,
+  gsdProcessDocs: (projectId: string) => ["gsd", "process-docs", projectId] as const,
   gsdValidations: (projectId: string) => ['gsd', projectId, 'validations'] as const,
   gsdValidationByPhase: (projectId: string, phase: string) => ['gsd', projectId, 'validation', phase] as const,
   gsdUatResults: (projectId: string) => ['gsd', projectId, 'uat-results'] as const,
@@ -145,4 +152,5 @@ export const queryKeys = {
   gsd2Sessions: (projectId: string) => ['gsd2', 'sessions', projectId] as const,
   tmuxSessions: () => ['tmux', 'sessions'] as const,
   projectDocs: (path: string) => ['project-docs', path] as const,
+  projectWorkflows: (path: string) => ['project-workflows', path] as const,
 };

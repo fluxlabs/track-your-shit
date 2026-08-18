@@ -219,7 +219,10 @@ impl Database {
         // 4. FTS5 full-text search -- non-fatal if extension not available
         match self.conn.execute_batch(FTS5_SCHEMA) {
             Ok(_) => tracing::info!("FTS5 search indexes initialized"),
-            Err(e) => tracing::warn!("FTS5 search indexes not available (search will use LIKE fallback): {}", e),
+            Err(e) => tracing::warn!(
+                "FTS5 search indexes not available (search will use LIKE fallback): {}",
+                e
+            ),
         }
 
         tracing::info!("Database schema initialized");
@@ -396,7 +399,11 @@ impl Database {
                 })
                 .unwrap_or_default();
             for (obj_type, obj_name) in &stale_objects {
-                let drop_sql = format!("DROP {} IF EXISTS \"{}\"", obj_type.to_uppercase(), obj_name);
+                let drop_sql = format!(
+                    "DROP {} IF EXISTS \"{}\"",
+                    obj_type.to_uppercase(),
+                    obj_name
+                );
                 tracing::info!("Dropping stale {}: {}", obj_type, obj_name);
                 self.conn.execute(&drop_sql, []).ok();
             }
@@ -410,22 +417,21 @@ impl Database {
                 .prepare("SELECT 1 FROM flight_plans LIMIT 1")
                 .is_ok();
             // Check if the new table already exists (created by SCHEMA)
-            let has_new_table: bool = self
-                .conn
-                .prepare("SELECT 1 FROM roadmaps LIMIT 1")
-                .is_ok();
+            let has_new_table: bool = self.conn.prepare("SELECT 1 FROM roadmaps LIMIT 1").is_ok();
 
             if has_old_table && has_new_table {
                 // Both exist: SCHEMA created empty roadmaps, old flight_plans has data.
                 // Move data from old table to new, then drop old.
                 tracing::info!("Running migration: Migrating data from flight_plans -> roadmaps");
-                self.conn.execute(
-                    "INSERT OR IGNORE INTO roadmaps SELECT * FROM flight_plans",
-                    [],
-                ).unwrap_or_else(|e| {
-                    tracing::warn!("Data migration flight_plans->roadmaps: {}", e);
-                    0
-                });
+                self.conn
+                    .execute(
+                        "INSERT OR IGNORE INTO roadmaps SELECT * FROM flight_plans",
+                        [],
+                    )
+                    .unwrap_or_else(|e| {
+                        tracing::warn!("Data migration flight_plans->roadmaps: {}", e);
+                        0
+                    });
                 self.conn.execute("DROP TABLE IF EXISTS flight_plans", [])?;
             } else if has_old_table && !has_new_table {
                 // Only old table: simple rename
@@ -440,11 +446,10 @@ impl Database {
                 .prepare("SELECT flight_plan_id FROM phases LIMIT 1")
                 .is_ok();
             if has_old_column {
-                self.conn
-                    .execute(
-                        "ALTER TABLE phases RENAME COLUMN flight_plan_id TO roadmap_id",
-                        [],
-                    )?;
+                self.conn.execute(
+                    "ALTER TABLE phases RENAME COLUMN flight_plan_id TO roadmap_id",
+                    [],
+                )?;
             }
 
             // Drop old indexes
@@ -460,14 +465,15 @@ impl Database {
         // ALTER TABLE RENAME COLUMN doesn't update FK references in SQLite
         if !self.migration_applied("fix_phases_fk_roadmaps") {
             // Check if phases table FK still references flight_plans
-            let phases_sql: Option<String> = self.conn
+            let phases_sql: Option<String> = self
+                .conn
                 .query_row(
                     "SELECT sql FROM sqlite_master WHERE type='table' AND name='phases'",
                     [],
                     |row| row.get(0),
                 )
                 .ok();
-            
+
             if let Some(sql) = &phases_sql {
                 if sql.contains("flight_plans") {
                     tracing::info!("Running migration: Fixing phases FK to reference roadmaps");
@@ -515,15 +521,17 @@ impl Database {
         // Migration: Drop stale AutoPilot tables that are no longer in the schema
         if !self.migration_applied("drop_stale_ap_tables") {
             tracing::info!("Running migration: Dropping stale AutoPilot tables");
-            self.conn.execute_batch(
-                "DROP TABLE IF EXISTS executions;
+            self.conn
+                .execute_batch(
+                    "DROP TABLE IF EXISTS executions;
                  DROP TABLE IF EXISTS checkpoints;
                  DROP TABLE IF EXISTS cache_statistics;
                  DROP TABLE IF EXISTS execution_bookmarks;
-                 DROP TABLE IF EXISTS webhooks;"
-            ).unwrap_or_else(|e| {
-                tracing::warn!("Drop stale AP tables (non-fatal): {}", e);
-            });
+                 DROP TABLE IF EXISTS webhooks;",
+                )
+                .unwrap_or_else(|e| {
+                    tracing::warn!("Drop stale AP tables (non-fatal): {}", e);
+                });
             self.record_migration("drop_stale_ap_tables")?;
         }
 
@@ -539,12 +547,16 @@ impl Database {
                 .unwrap_or_default();
 
             if !tables_with_stale_fk.is_empty() {
-                tracing::info!("Running migration: Removing stale executions FK from {} tables", tables_with_stale_fk.len());
+                tracing::info!(
+                    "Running migration: Removing stale executions FK from {} tables",
+                    tables_with_stale_fk.len()
+                );
                 self.conn.pragma_update(None, "foreign_keys", "OFF")?;
 
                 for table_name in &tables_with_stale_fk {
                     // Get the original CREATE TABLE SQL
-                    let original_sql: Option<String> = self.conn
+                    let original_sql: Option<String> = self
+                        .conn
                         .query_row(
                             "SELECT sql FROM sqlite_master WHERE type='table' AND name=?1",
                             params![table_name],
@@ -561,15 +573,17 @@ impl Database {
 
                         // Rename to temp name using the cleaned SQL
                         let temp_name = format!("{}_new", table_name);
-                        let create_new = new_sql.replacen(
-                            &format!("CREATE TABLE {}", table_name),
-                            &format!("CREATE TABLE {}", temp_name),
-                            1,
-                        ).replacen(
-                            &format!("CREATE TABLE \"{}\"", table_name),
-                            &format!("CREATE TABLE \"{}\"", temp_name),
-                            1,
-                        );
+                        let create_new = new_sql
+                            .replacen(
+                                &format!("CREATE TABLE {}", table_name),
+                                &format!("CREATE TABLE {}", temp_name),
+                                1,
+                            )
+                            .replacen(
+                                &format!("CREATE TABLE \"{}\"", table_name),
+                                &format!("CREATE TABLE \"{}\"", temp_name),
+                                1,
+                            );
 
                         let migrate_sql = format!(
                             "{};\nINSERT INTO \"{}\" SELECT * FROM \"{}\";\nDROP TABLE \"{}\";\nALTER TABLE \"{}\" RENAME TO \"{}\";",
@@ -577,7 +591,11 @@ impl Database {
                         );
 
                         if let Err(e) = self.conn.execute_batch(&migrate_sql) {
-                            tracing::warn!("Failed to remove executions FK from {}: {}", table_name, e);
+                            tracing::warn!(
+                                "Failed to remove executions FK from {}: {}",
+                                table_name,
+                                e
+                            );
                         } else {
                             tracing::info!("Removed executions FK from {}", table_name);
                         }
@@ -591,22 +609,22 @@ impl Database {
 
         // Migration: Rename 'wave' column to 'group_number' in phases and gsd_plans
         if !self.migration_applied("rename_wave_to_group_number") {
-            let has_wave_phases: bool = self.conn
-                .prepare("SELECT wave FROM phases LIMIT 1")
-                .is_ok();
+            let has_wave_phases: bool =
+                self.conn.prepare("SELECT wave FROM phases LIMIT 1").is_ok();
             if has_wave_phases {
                 tracing::info!("Running migration: Renaming wave -> group_number in phases");
-                self.conn.execute(
-                    "ALTER TABLE phases RENAME COLUMN wave TO group_number", []
-                )?;
+                self.conn
+                    .execute("ALTER TABLE phases RENAME COLUMN wave TO group_number", [])?;
             }
-            let has_wave_gsd: bool = self.conn
+            let has_wave_gsd: bool = self
+                .conn
                 .prepare("SELECT wave FROM gsd_plans LIMIT 1")
                 .is_ok();
             if has_wave_gsd {
                 tracing::info!("Running migration: Renaming wave -> group_number in gsd_plans");
                 self.conn.execute(
-                    "ALTER TABLE gsd_plans RENAME COLUMN wave TO group_number", []
+                    "ALTER TABLE gsd_plans RENAME COLUMN wave TO group_number",
+                    [],
                 )?;
             }
             self.record_migration("rename_wave_to_group_number")?;
@@ -655,11 +673,19 @@ impl Database {
             // Drop all GSD tables so SCHEMA creates them fresh with correct columns.
             // Data loss is acceptable — tables are fully rebuilt from .planning/ files on next sync.
             for table in &[
-                "gsd_plans", "gsd_summaries", "gsd_phase_research",
-                "gsd_verifications", "gsd_milestones", "gsd_requirements",
-                "gsd_todos", "gsd_config", "gsd_debug_sessions",
+                "gsd_plans",
+                "gsd_summaries",
+                "gsd_phase_research",
+                "gsd_verifications",
+                "gsd_milestones",
+                "gsd_requirements",
+                "gsd_todos",
+                "gsd_config",
+                "gsd_debug_sessions",
             ] {
-                self.conn.execute(&format!("DROP TABLE IF EXISTS {}", table), []).ok();
+                self.conn
+                    .execute(&format!("DROP TABLE IF EXISTS {}", table), [])
+                    .ok();
             }
             // Re-run schema to recreate with correct columns
             self.conn.execute_batch(SCHEMA).ok();
@@ -669,7 +695,10 @@ impl Database {
         // Migration: Rebuild gsd_requirements without title NOT NULL constraint
         if !self.migration_applied("gsd_requirements_drop_title_notnull") {
             // Check if title column exists with NOT NULL (causes insert failures)
-            let has_title: bool = self.conn.prepare("SELECT title FROM gsd_requirements LIMIT 1").is_ok();
+            let has_title: bool = self
+                .conn
+                .prepare("SELECT title FROM gsd_requirements LIMIT 1")
+                .is_ok();
             if has_title {
                 tracing::info!("Rebuilding gsd_requirements to remove title NOT NULL constraint");
                 self.conn.execute_batch("
@@ -697,11 +726,26 @@ impl Database {
         // Migration: Add missing columns to GSD tables (schema may have created them without all columns)
         if !self.migration_applied("gsd_table_column_fixes") {
             // gsd_requirements: add category and priority if missing
-            if self.conn.prepare("SELECT category FROM gsd_requirements LIMIT 1").is_err() {
-                self.conn.execute("ALTER TABLE gsd_requirements ADD COLUMN category TEXT", []).ok();
+            if self
+                .conn
+                .prepare("SELECT category FROM gsd_requirements LIMIT 1")
+                .is_err()
+            {
+                self.conn
+                    .execute("ALTER TABLE gsd_requirements ADD COLUMN category TEXT", [])
+                    .ok();
             }
-            if self.conn.prepare("SELECT priority FROM gsd_requirements LIMIT 1").is_err() {
-                self.conn.execute("ALTER TABLE gsd_requirements ADD COLUMN priority TEXT DEFAULT 'normal'", []).ok();
+            if self
+                .conn
+                .prepare("SELECT priority FROM gsd_requirements LIMIT 1")
+                .is_err()
+            {
+                self.conn
+                    .execute(
+                        "ALTER TABLE gsd_requirements ADD COLUMN priority TEXT DEFAULT 'normal'",
+                        [],
+                    )
+                    .ok();
             }
             // gsd_todos: add all extended columns if missing
             for col in &[
@@ -712,18 +756,36 @@ impl Database {
                 ("source_file", "TEXT"),
                 ("completed_at", "TEXT"),
             ] {
-                if self.conn.prepare(&format!("SELECT {} FROM gsd_todos LIMIT 1", col.0)).is_err() {
-                    self.conn.execute(
-                        &format!("ALTER TABLE gsd_todos ADD COLUMN {} {}", col.0, col.1), []
-                    ).ok();
+                if self
+                    .conn
+                    .prepare(&format!("SELECT {} FROM gsd_todos LIMIT 1", col.0))
+                    .is_err()
+                {
+                    self.conn
+                        .execute(
+                            &format!("ALTER TABLE gsd_todos ADD COLUMN {} {}", col.0, col.1),
+                            [],
+                        )
+                        .ok();
                 }
             }
             // gsd_milestones: add phase_start, phase_end if missing
-            for col in &[("phase_start", "TEXT"), ("phase_end", "TEXT"), ("version", "TEXT")] {
-                if self.conn.prepare(&format!("SELECT {} FROM gsd_milestones LIMIT 1", col.0)).is_err() {
-                    self.conn.execute(
-                        &format!("ALTER TABLE gsd_milestones ADD COLUMN {} {}", col.0, col.1), []
-                    ).ok();
+            for col in &[
+                ("phase_start", "TEXT"),
+                ("phase_end", "TEXT"),
+                ("version", "TEXT"),
+            ] {
+                if self
+                    .conn
+                    .prepare(&format!("SELECT {} FROM gsd_milestones LIMIT 1", col.0))
+                    .is_err()
+                {
+                    self.conn
+                        .execute(
+                            &format!("ALTER TABLE gsd_milestones ADD COLUMN {} {}", col.0, col.1),
+                            [],
+                        )
+                        .ok();
                 }
             }
             // gsd_verifications: add extended columns if missing
@@ -735,16 +797,35 @@ impl Database {
                 ("raw_content", "TEXT"),
                 ("source_file", "TEXT"),
             ] {
-                if self.conn.prepare(&format!("SELECT {} FROM gsd_verifications LIMIT 1", col.0)).is_err() {
-                    self.conn.execute(
-                        &format!("ALTER TABLE gsd_verifications ADD COLUMN {} {}", col.0, col.1), []
-                    ).ok();
+                if self
+                    .conn
+                    .prepare(&format!("SELECT {} FROM gsd_verifications LIMIT 1", col.0))
+                    .is_err()
+                {
+                    self.conn
+                        .execute(
+                            &format!(
+                                "ALTER TABLE gsd_verifications ADD COLUMN {} {}",
+                                col.0, col.1
+                            ),
+                            [],
+                        )
+                        .ok();
                 }
             }
             self.record_migration("gsd_table_column_fixes")?;
         }
 
-        // Migration: Add gsd_version column to projects table (GSD-2 version detection)
+        // Migration: Add gsd_version column to projects table (version detection).
+        // Valid values: "gsd1" | "gsd2-legacy" | "none".
+        //   gsd1        — active GSD-1 project (.planning/ present; live data path).
+        //   gsd2-legacy — frozen GSD-2 project (.gsd/ present; no live data path; kept as
+        //                 gsd-pi-support basis for v1.3). The frontend uses an exact match
+        //                 on "gsd2" which never fires for this value, so the gsd2 UI views
+        //                 never mount and gsd2.rs readers are unreachable dead paths.
+        //   none        — neither directory detected.
+        // Note: the old value "gsd2" is backfilled to "gsd2-legacy" by the
+        //       backfill_gsd2_to_gsd2_legacy migration below.
         if !self.migration_applied("add_gsd_version_to_projects") {
             let has_col: bool = self
                 .conn
@@ -752,12 +833,23 @@ impl Database {
                 .is_ok();
             if !has_col {
                 tracing::info!("Running migration: Adding gsd_version column to projects");
-                self.conn.execute(
-                    "ALTER TABLE projects ADD COLUMN gsd_version TEXT",
-                    [],
-                )?;
+                self.conn
+                    .execute("ALTER TABLE projects ADD COLUMN gsd_version TEXT", [])?;
             }
             self.record_migration("add_gsd_version_to_projects")?;
+        }
+
+        // Migration: Backfill gsd_version from "gsd2" to "gsd2-legacy" (freeze gate).
+        // Projects imported before the D-01 routing gate was applied may have gsd_version="gsd2"
+        // stored in the DB. This one-time idempotent UPDATE ensures no existing project ever
+        // routes into the .gsd/ data path through the frontend gsd_version === 'gsd2' check.
+        if !self.migration_applied("backfill_gsd2_to_gsd2_legacy") {
+            tracing::info!("Running migration: Backfilling gsd_version gsd2 -> gsd2-legacy");
+            self.conn.execute(
+                "UPDATE projects SET gsd_version = 'gsd2-legacy' WHERE gsd_version = 'gsd2'",
+                [],
+            )?;
+            self.record_migration("backfill_gsd2_to_gsd2_legacy")?;
         }
 
         // Migration: Create dependency_cache table
@@ -1387,7 +1479,8 @@ mod tests {
     fn open_test_db() -> Connection {
         let conn = Connection::open_in_memory().expect("open in-memory DB");
         conn.execute_batch(SCHEMA).expect("apply SCHEMA");
-        conn.execute_batch(INDEXES_SCHEMA).expect("apply INDEXES_SCHEMA");
+        conn.execute_batch(INDEXES_SCHEMA)
+            .expect("apply INDEXES_SCHEMA");
         // FTS5 may not be available in all test environments; apply but ignore errors
         let _ = conn.execute_batch(FTS5_SCHEMA);
         conn
@@ -1396,7 +1489,9 @@ mod tests {
     /// Return the set of table names that exist in the database.
     fn existing_tables(conn: &Connection) -> std::collections::HashSet<String> {
         let mut stmt = conn
-            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+            )
             .expect("prepare sqlite_master query");
         stmt.query_map([], |row| row.get::<_, String>(0))
             .expect("query")
@@ -1534,7 +1629,10 @@ mod tests {
              VALUES ('b2', 'p1', 'KNOWLEDGE.md', 'Section One', 3)",
             [],
         );
-        assert!(result.is_err(), "Duplicate bookmark should violate UNIQUE constraint");
+        assert!(
+            result.is_err(),
+            "Duplicate bookmark should violate UNIQUE constraint"
+        );
 
         // Different heading is fine
         conn.execute(

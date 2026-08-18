@@ -548,7 +548,6 @@ pub struct KnowledgeFileEntry {
     pub size_bytes: u64,
 }
 
-
 // ============================================================
 // Notification Models (CC-03)
 // ============================================================
@@ -699,7 +698,26 @@ pub struct GsdCurrentPosition {
     pub plan: Option<String>,
     pub status: Option<String>,
     pub last_activity: Option<String>,
+    /// Raw body text of the progress section (kept for backward compat)
     pub progress: Option<String>,
+    /// Parsed from STATE.md frontmatter progress.total_phases (SCHM-02)
+    #[serde(default)]
+    pub progress_total_phases: Option<i32>,
+    /// Parsed from STATE.md frontmatter progress.completed_phases (SCHM-02)
+    #[serde(default)]
+    pub progress_completed_phases: Option<i32>,
+    /// Parsed from STATE.md frontmatter progress.total_plans (SCHM-02)
+    #[serde(default)]
+    pub progress_total_plans: Option<i32>,
+    /// Parsed from STATE.md frontmatter progress.completed_plans (SCHM-02)
+    #[serde(default)]
+    pub progress_completed_plans: Option<i32>,
+    /// Parsed from STATE.md frontmatter progress.percent (SCHM-02)
+    #[serde(default)]
+    pub progress_percent: Option<f32>,
+    /// gsd_state_version from STATE.md frontmatter (SCHM-02)
+    #[serde(default)]
+    pub gsd_state_version: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -818,6 +836,7 @@ pub struct GsdPlan {
     pub phase_number: i32,
     pub plan_number: i32,
     pub plan_type: Option<String>,
+    /// Deprecated upstream but harmless to read (legacy plans may carry it)
     pub group_number: Option<i32>,
     pub autonomous: bool,
     pub objective: Option<String>,
@@ -825,6 +844,18 @@ pub struct GsdPlan {
     pub tasks: Vec<GsdPlanTask>,
     pub files_modified: Vec<String>,
     pub source_file: String,
+    /// Wave number from PLAN.md frontmatter (SCHM-01)
+    #[serde(default)]
+    pub wave: Option<i32>,
+    /// depends_on list from PLAN.md frontmatter (SCHM-01)
+    #[serde(default)]
+    pub depends_on: Vec<String>,
+    /// requirements list from PLAN.md frontmatter (SCHM-01)
+    #[serde(default)]
+    pub requirements: Vec<String>,
+    /// user_setup list from PLAN.md frontmatter (SCHM-01)
+    #[serde(default)]
+    pub user_setup: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -849,6 +880,24 @@ pub struct GsdSummary {
     pub deviations: Option<String>,
     pub self_check: Option<String>,
     pub source_file: String,
+    /// status from SUMMARY.md frontmatter (SCHM-01)
+    #[serde(default)]
+    pub status: Option<String>,
+    /// requirements-completed from SUMMARY.md frontmatter (SCHM-01)
+    #[serde(default)]
+    pub requirements_completed: Vec<String>,
+    /// requires dependency graph entries from frontmatter (SCHM-01, Phase 12 renders)
+    #[serde(default)]
+    pub requires: Vec<String>,
+    /// provides list from frontmatter (SCHM-01, Phase 12 renders)
+    #[serde(default)]
+    pub provides: Vec<String>,
+    /// affects list from frontmatter (SCHM-01, Phase 12 renders)
+    #[serde(default)]
+    pub affects: Vec<String>,
+    /// patterns-established list from frontmatter (SCHM-01, Phase 12 renders)
+    #[serde(default)]
+    pub patterns_established: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -867,6 +916,37 @@ pub struct GsdPhaseResearch {
     pub pitfalls: Vec<String>,
     pub raw_content: String,
     pub source_file: String,
+}
+
+// ============================================================
+// Phase 12 Artifact Reader Structs (ARTF-01..04)
+// ============================================================
+
+/// Represents one markdown artifact for a phase (SPEC, AI-SPEC, UI-SPEC, SECURITY, VALIDATION, REVIEW).
+/// present=false when the file does not exist — never returns Err on absence (D-06).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GsdPhaseDoc {
+    pub doc_type: String,
+    pub present: bool,
+    pub raw_content: Option<String>,
+    pub source_file: Option<String>,
+}
+
+/// Wraps a phase's grouped spec/design docs (SPEC + AI-SPEC + UI-SPEC) in one round-trip (ARTF-01).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GsdPhaseDocSet {
+    pub phase_number: i32,
+    pub docs: Vec<GsdPhaseDoc>,
+}
+
+/// A project-level process document (discussion-log, retrospective, discovery, etc.) (ARTF-04).
+/// present=false when the file does not exist — never returns Err on absence (D-06).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GsdProcessDoc {
+    pub doc_type: String,
+    pub present: bool,
+    pub raw_content: Option<String>,
+    pub source_file: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -906,8 +986,8 @@ pub struct GsdMilestoneAudit {
 pub struct TaskVerification {
     pub task_id: String,
     pub requirement: Option<String>,
-    pub test_type: String,   // "automated" | "manual"
-    pub status: String,      // "pending" | "pass" | "fail"
+    pub test_type: String, // "automated" | "manual"
+    pub status: String,    // "pending" | "pass" | "fail"
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -986,13 +1066,13 @@ pub struct UatTestResult {
     pub number: i32,
     pub test: String,
     pub expected: String,
-    pub result: String,   // "pass" | "issue" | "pending" | "skipped"
+    pub result: String, // "pass" | "issue" | "pending" | "skipped"
     pub notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UatIssue {
-    pub severity: String,  // "blocker" | "major" | "minor" | "cosmetic"
+    pub severity: String, // "blocker" | "major" | "minor" | "cosmetic"
     pub description: String,
 }
 

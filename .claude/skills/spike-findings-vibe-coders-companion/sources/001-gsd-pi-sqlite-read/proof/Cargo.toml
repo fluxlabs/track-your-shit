@@ -1,0 +1,12 @@
+[package]
+name = "gsd_pi_sqlite_read"
+version = "0.0.0"
+edition = "2021"
+
+[[bin]]
+name = "proof"
+path = "src/main.rs"
+
+# Match VCCA's exact rusqlite dependency (src-tauri/Cargo.toml)
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled", "modern_sqlite"] }
