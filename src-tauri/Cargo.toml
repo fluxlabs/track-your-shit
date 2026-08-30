@@ -25,21 +25,21 @@ tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rusqlite = { version = "0.32", features = ["bundled", "modern_sqlite"] }
+rusqlite = { version = "0.39", features = ["bundled", "modern_sqlite"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "process"] }
 thiserror = "2"
-dirs = "5"
+dirs = "6"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "registry"] }
 regex = "1"
-rand = "0.8"
-portable-pty = "0.8"
-notify = "6"
-notify-debouncer-mini = "0.4"
-reqwest = { version = "0.12", features = ["json"] }
-keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+rand = "0.10"
+portable-pty = "0.9"
+notify = "8"
+notify-debouncer-mini = "0.7"
+reqwest = { version = "0.13", features = ["json"] }
+keyring = { version = "4", features = ["apple-native", "windows-native", "sync-secret-service"] }
 trash = "5"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
